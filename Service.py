@@ -1,3 +1,5 @@
+from typing import Union
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas
@@ -6,6 +8,7 @@ import uproot
 import csv
 import time
 from matplotlib.ticker import AutoMinorLocator
+from pandas import Series, DataFrame
 
 from Hist_Settings import hist_dict
 
@@ -67,7 +70,7 @@ def read_file(path, sample, branches):
 
     df = df.query("q2 > 6.0 and q2 < 12.96")  # according to LHCb-ANA-2017-042, Section 5.4.1, table 3
     df = df.query("B_plus_DTFM_M > 5200 and B_plus_DTFM_M < 5680")  # same, Section 6.9 (stricter cut)
-    df = df.query("BDT_score_selection >= 0.85")  # should ask about this value
+    df = df.query("BDT_score_selection >= 0.85")  # 85% of signal
 
     num_after_cuts = len(df.index)
     print("Number of events after cuts: {0}".format(num_after_cuts))
@@ -109,6 +112,7 @@ def read_sample(sample, year):  # right now reads 1 sample from 2 ntuples (idk h
         strip = ""
         truth = "truth_"
 
+    # todo maybe put this into infofile?
     fold = "folded_"
     trig = "fullTrig_"
     presel = "fullPresel_"
@@ -194,7 +198,7 @@ def get_data_from_files():
 
 
 # each sample must be broken into different brem and trigger categories. 2 trigger cats, 3 brem cats
-
+# The structure of of data is: data[run_number][sample]
 
 def categorize_by_brem(data):
     print("=====")
@@ -208,23 +212,34 @@ def categorize_by_brem(data):
     brem_two_cut = "(e_plus_BremMultiplicity == 0 and e_minus_BremMultiplicity > 1) or " \
                    "(e_plus_BremMultiplicity > 1 and e_minus_BremMultiplicity == 0) or " \
                    "(e_plus_BremMultiplicity >= 1 and e_minus_BremMultiplicity >= 1)"
-    temp_dict = {}
+
     for run_num, data_run in data.items():
         print("Processing run {0} data".format(run_num))
         for s, data_sample in data_run.items():
             print("Processing {0} sample".format(s))
-            temp_dict["b_zero"] = data_sample.query(brem_zero_cut)
-            temp_dict["b_one"] = data_sample.query(brem_one_cut)
-            temp_dict["b_two"] = data_sample.query(brem_two_cut)
 
-            b_zero_n = len(temp_dict["b_zero"].index)
-            b_one_n = len(temp_dict["b_one"].index)
-            b_two_n = len(temp_dict["b_two"].index)
+            brem0_df = data_sample.copy()
+            brem0_df = brem0_df.query(brem_zero_cut)
+            brem0_df["brem_cat"] = "brem_zero"
+
+            brem1_df = data_sample.copy()
+            brem1_df = brem1_df.query(brem_one_cut)
+            brem1_df["brem_cat"] = "brem_one"
+
+            brem2_df = data_sample.copy()
+            brem2_df = brem2_df.query(brem_two_cut)
+            brem2_df["brem_cat"] = "brem_two"
+
+            b_zero_n = len(brem0_df.index)
+            b_one_n = len(brem1_df.index)
+            b_two_n = len(brem2_df.index)
 
             print("Events in different categories:\nBrem zero: {0}"
                   "\nBrem one:  {1}\nBrem two:  {2}".format(b_zero_n, b_one_n, b_two_n))
 
-            data[run_num][s] = temp_dict.copy()
+            sample_df = pandas.concat([brem0_df, brem1_df, brem2_df])
+            data[run_num][s] = sample_df.copy()
+            del sample_df
     return data
 
 
@@ -235,69 +250,68 @@ def categorize_by_trig(data):
     TIS_cut = "L0TISOnly_d == 1"
     eTOS_cut = "L0ETOSOnly_d == 1"
 
-    temp_dict = {}
     for run_num, data_run in data.items():
         print("Processing run {0} data".format(run_num))
         for s, data_sample in data_run.items():
             print("Processing {0} sample".format(s))
-            for b, data_brem in data_sample.items():
-                print("Processing {0} brem category".format(b))
-                temp_dict["TIS"] = data_brem.query(TIS_cut)
-                temp_dict["eTOS"] = data_brem.query(eTOS_cut)
 
-                eTOS_n = len(temp_dict["eTOS"].index)
-                TIS_n = len(temp_dict["TIS"].index)
+            TIS_df = data_sample.copy()
+            TIS_df = TIS_df.query(TIS_cut)
+            TIS_df["trig_cat"] = "TIS"
 
-                print("Events in different categories:\neTOS: {0}\nTIS:  {1}".format(eTOS_n, TIS_n))
+            eTOS_df = data_sample.copy()
+            eTOS_df = eTOS_df.query(eTOS_cut)
+            eTOS_df["trig_cat"] = "eTOS"
 
-                data[run_num][s][b] = temp_dict.copy()
+            eTOS_n = len(eTOS_df.index)
+            TIS_n = len(TIS_df.index)
+
+            print("Events in different categories:\neTOS: {0}\nTIS:  {1}".format(eTOS_n, TIS_n))
+            sample_df = pandas.concat([TIS_df, eTOS_df])
+            data[run_num][s] = sample_df.copy()
+            del sample_df
     return data
 
 
-# I am not sure... there must be a better way to do it. Maybe some tags for each event and then query
-# relevant combinations? Not sure whether it's cleaner...
-# Anyway, the structure of of data is the following: data[run_number][sample][brem_cat][trig_cat]
-# This way we could potentially concat trigger cats into one, then brem cats (if the need arises)
-
 # Now let's plot histograms
 
-def plot_histograms(data):
-    print("###==========####")
-    print("Started plotting histograms")
+def plot_histogram(data, tags, plt_name):
+    run_num = tags["run_num"]
+    s = tags["sample"]
+    if "brem_cat" in tags:
+        b = tags["brem_cat"]
+    else:
+        b = "all brem cats"
+    if "trig_cat" in tags:
+        t = tags["trig_cat"]
+    else:
+        t = "all trig cats"
 
-    for run_num, data_run in data.items():
-        for s, data_sample in data_run.items():
-            for b, data_brem in data_sample.items():
-                for t, data_trig in data_brem.items():
-                    plot_label = "$B \\rightarrow Kee$\n" + b + "\n" + t
+    plot_label = hist_dict[plt_name]["plot_label"] + "\nrun_" + run_num + '\n' + b + "\n" + t
+    h_bin_width = hist_dict[plt_name]["bin_width"]
+    h_num_bins = hist_dict[plt_name]["num_bins"]
+    h_xmin = hist_dict[plt_name]["x_min"]
+    h_xmax = hist_dict[plt_name]["x_max"]
+    h_xlabel = hist_dict[plt_name]["x_label"]
+    h_ylabel = hist_dict[plt_name]["y_label"]
+    x_var = hist_dict[plt_name]["x_var"]
 
-                    h_bin_width = hist_dict["bin_width"]
-                    h_num_bins = hist_dict["num_bins"]
-                    h_xmin = hist_dict["x_min"]
-                    h_xmax = hist_dict["x_max"]
-                    h_xlabel = hist_dict["x_label"]
-                    x_var = hist_dict["x_var"]
+    bins = [h_xmin + x * h_bin_width for x in range(h_num_bins + 1)]
+    bin_centers = [h_xmin + h_bin_width / 2 + x * h_bin_width for x in range(h_num_bins)]
 
-                    bins = [h_xmin + x * h_bin_width for x in range(h_num_bins + 1)]
-                    bin_centers = [h_xmin + h_bin_width / 2 + x * h_bin_width for x in range(h_num_bins)]
+    data_x, _ = np.histogram(data[x_var].values, bins=bins)
 
-                    data_x, _ = np.histogram(data_trig[x_var].values, bins=bins)
+    plt.clf()
+    plt.axes([0.1, 0.30, 0.85, 0.65])
+    main_axes = plt.gca()
+    main_axes.errorbar(bin_centers, data_x, xerr=16, fmt="ok", label=s)
 
-                    plt.clf()
-                    plt.axes([0.1, 0.30, 0.85, 0.65])
-                    main_axes = plt.gca()
-                    main_axes.errorbar(bin_centers, data_x, xerr=16, fmt="ok", label=s)
+    main_axes.legend(title=plot_label, loc="best")
+    main_axes.set_xlim(h_xmin, h_xmax)
 
-                    main_axes.legend(title=plot_label, loc="best")
-                    main_axes.set_xlim(h_xmin, h_xmax)
+    main_axes.xaxis.set_minor_locator(AutoMinorLocator())
 
-                    main_axes.xaxis.set_minor_locator(AutoMinorLocator())
-
-                    main_axes.set_ylabel("Events/32 MeV")
-
-                    main_axes.set_xlabel(h_xlabel)
-                    # plt.show()
-                    plt.savefig("../Output/Hist_run{0}_{1}_{2}_{3}.pdf".format(run_num, s, b, t))
-
-
-# now for J/Psi MC fitting
+    main_axes.set_ylabel(h_ylabel)
+    main_axes.set_xlabel(h_xlabel)
+    # plt.show()
+    plt.savefig("../Output/Hist_run{0}_{1}_{2}_{3}.pdf".format(run_num, s, b, t))
