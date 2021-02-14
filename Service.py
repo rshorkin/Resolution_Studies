@@ -16,15 +16,21 @@ from Hist_Settings import hist_dict
 # The reading hierarchy: file -> sample -> year -> run. The final product is a dictionary with run numbers as keys
 # that contains 3 data frames: data, rare_MC and Jpsi_MC (all the years within a run are united)
 fraction = 1.
+
 samples = {"data": "B2Kee_",
            "rare_MC": "B2Kee_",
            "Jpsi_MC": "B2KJpsi_"}
+
 samples_keys = ["data", "rare_MC", "Jpsi_MC"]
+
 common_path = "/media/roman/Backup Plus/resolution_data/"  # !!! change this to your data directory path !!!
-data_branches = ["J_psi_1S_M", "B_plus_DTFM_M", "BDT_score_selection", "e_plus_BremMultiplicity",
+
+data_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection", "e_plus_BremMultiplicity",
                  "e_minus_BremMultiplicity", "L0TISOnly_d", "L0ETOSOnly_d", "J_psi_1S_TRACK_M"]
-mc_branches = ["J_psi_1S_M", "B_plus_DTFM_M", "BDT_score_selection", "J_psi_1S_M_TRUE", "e_plus_BremMultiplicity",
-               "e_minus_BremMultiplicity", "L0TISOnly_d", "L0ETOSOnly_d", "J_psi_1S_TRACK_M"]
+
+mc_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection", "J_psi_1S_M_TRUE",
+               "e_plus_BremMultiplicity", "e_minus_BremMultiplicity", "L0TISOnly_d", "L0ETOSOnly_d",
+               "J_psi_1S_TRACK_M"]
 
 
 def extract_from_vector(x):

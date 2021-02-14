@@ -9,15 +9,12 @@ from Hist_Settings import hist_dict
 # Here are the functions for fitting J/Psi MC, using the fit's shape to fit data (letting some parameters loose)
 # and finally getting parameters for smearing from all of this
 
-obs = zfit.Space('J_psi_1S_M', limits=(2200, 3800))
-
-
 # todo: generalize functions to work with both m(ee) and m(Kee) (different obs, rework format_data(data))
 # todo: use extended pdfs instead of pdfs to produced composed model incorporating backgrounds
 # formatting data into zfit-compatible format
 
 
-def format_data(data):
+def format_data(data, obs):
     return zfit.Data.from_numpy(obs, data.to_numpy())
 
 
@@ -27,17 +24,16 @@ def name_tags(tags):
 
 
 # Creating initial model to fit J/Psi
-def create_initial_model(tags):
-    initial_params = {'mu': 3097., 'sigma': 20., 'alphal': 0.15, 'nl': 50., 'alphar': 0.9, 'nr': 3.}
-
+def create_initial_model(initial_parameters, obs, tags):
     # Double Crystal Ball for each category, like in RK
 
-    mu = zfit.Parameter("mu" + name_tags(tags), initial_params['mu'], 3000., 3200.)
-    sigma = zfit.Parameter('sigma' + name_tags(tags), initial_params['sigma'], 1., 100.)
-    alphal = zfit.Parameter('alphal' + name_tags(tags), initial_params['alphal'], 0., 5.)
-    nl = zfit.Parameter('nl' + name_tags(tags), initial_params['nl'], 0., 200.)
-    alphar = zfit.Parameter('alphar' + name_tags(tags), initial_params['alphar'], 0., 5.)
-    nr = zfit.Parameter('nr' + name_tags(tags), initial_params['nr'], 0., 200.)
+    mu = zfit.Parameter("mu" + name_tags(tags), initial_parameters['mu'],
+                        initial_parameters['mu'] - 100., initial_parameters['mu'] + 100.)
+    sigma = zfit.Parameter('sigma' + name_tags(tags), initial_parameters['sigma'], 1., 100.)
+    alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0., 5.)
+    nl = zfit.Parameter('nl' + name_tags(tags), initial_parameters['nl'], 0., 200.)
+    alphar = zfit.Parameter('alphar' + name_tags(tags), initial_parameters['alphar'], 0., 5.)
+    nr = zfit.Parameter('nr' + name_tags(tags), initial_parameters['nr'], 0., 200.)
 
     model = zfit.pdf.DoubleCB(obs=obs, mu=mu, sigma=sigma, alphal=alphal, nl=nl, alphar=alphar, nr=nr)
     return model
@@ -45,8 +41,8 @@ def create_initial_model(tags):
 
 # Minimizing the J/Psi model
 
-def initial_fitter(data, model):
-    data = format_data(data)
+def initial_fitter(data, model, obs):
+    data = format_data(data, obs)
     # Create NLL
     nll = zfit.loss.UnbinnedNLL(model=model, data=data)
     # Create minimizer
@@ -55,7 +51,7 @@ def initial_fitter(data, model):
     if result.valid:
         print(f'>>> Result is valid')
         print("Converged:", result.converged)
-        param_hesse = result.hesse()  # calculate errors todo: nans
+        param_errors = result.hesse()
         params = result.params
         print(params)
         if not result.valid:
@@ -70,7 +66,7 @@ def initial_fitter(data, model):
 
 # Plotting
 
-def plot_fit_result(models, data, tags, plt_name):
+def plot_fit_result(models, data, obs, tags, plt_name):
     r_tag = tags["run_num"]
     if "brem_cat" in tags:
         b_tag = tags["brem_cat"]
@@ -101,7 +97,7 @@ def plot_fit_result(models, data, tags, plt_name):
     plt.clf()
     plt.axes([0.1, 0.30, 0.85, 0.65])
     main_axes = plt.gca()
-    main_axes.errorbar(bin_centers, data_x, xerr=h_bin_width / 2, fmt="ok", label=plt_name)
+    main_axes.errorbar(bin_centers, data_x, xerr=h_bin_width / 2, fmt="ok", label=tags["sample"])
 
     main_axes.set_xlim(h_xmin, h_xmax)
 
@@ -134,16 +130,17 @@ def n_scaled_fn(x, scale_x):
 
 
 # data fitting and getting smearing parameters
-def create_data_fit_model(data, parameters, tags):
+def create_data_fit_model(data, parameters, obs, tags):
     if "brem_cat" in tags:
         b_tag = tags["brem_cat"]
     else:
         b_tag = "all_brem"
-    data = format_data(data)
+    num_events = len(data.index)
+    data = format_data(data, obs)
     # Initializing new model parameters to save the previous model for comparison
     # Floating parameters, required for smearing
-    shift_mu = zfit.Parameter('delta_mu' + name_tags(tags), 0., -200., 200.)
-    scale_sigma = zfit.Parameter('scale_sigma' + name_tags(tags), 1., 0.1, 10.)
+    shift_mu = zfit.Parameter('delta_mu' + name_tags(tags), 0., -100., 100.)
+    scale_sigma = zfit.Parameter('scale_sigma' + name_tags(tags), 1., 0.1, 5.)
 
     # main fit parameters, not allowed to float (though we explicitly say which parameters to float later)
     mu = zfit.Parameter('data_mu' + name_tags(tags),
@@ -188,18 +185,33 @@ def create_data_fit_model(data, parameters, tags):
     model = zfit.pdf.DoubleCB(obs=obs, mu=mu_shifted, sigma=sigma_scaled,
                               alphal=alphal, nl=nl, alphar=alphar_scaled, nr=nr_scaled)
 
+    # Background model: exponential
+    lambd = zfit.Parameter("lambda" + name_tags(tags), -0.005, -0.1, 0.1)
+    model_bgr = zfit.pdf.Exponential(lambd, obs=obs)
+
+    # Make models extended and combine them
+    n_sig = zfit.Parameter("n_signal" + name_tags(tags),
+                           int(num_events * 0.999), int(num_events * 0.7), int(num_events * 1.1), step_size=1)
+    n_bgr = zfit.Parameter("n_bgr" + name_tags(tags),
+                           int(num_events * 0.001), 0, int(num_events * 0.3), step_size=1)
+
+    model_extended = model.create_extended(n_sig)
+    model_bgr_extended = model_bgr.create_extended(n_bgr)
+
+    model = zfit.pdf.SumPDF([model_extended, model_bgr_extended])
     # NLL and minimizer
-    nll = zfit.loss.UnbinnedNLL(model=model, data=data)
+    nll = zfit.loss.ExtendedUnbinnedNLL(model=model, data=data)
     minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
 
     # minimization of shift and scale factors
     if b_tag == "b_zero":
-        result = minimizer.minimize(nll, params=[mu_shifted, sigma_scaled])
+        result = minimizer.minimize(nll, params=[lambd, n_sig, n_bgr, mu_shifted, sigma_scaled])
     else:
-        result = minimizer.minimize(nll, params=[mu_shifted, sigma_scaled, scale_r])
+        result = minimizer.minimize(nll, params=[lambd, n_sig, n_bgr, mu_shifted, sigma_scaled, scale_r])
     final_params = result.params
-    errors = result.hesse()   # calculate errors
+    param_errors = result.hesse()
     print("Result Valid:", result.valid)
     print("Fit converged:", result.converged)
     print(result.params)
-    return final_params, model
+    return {param[0].name: {"value": param[1]['value'], "error": err[1]['error']}
+            for param, err in zip(result.params.items(), param_errors.items())}, model
