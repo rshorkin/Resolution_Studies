@@ -9,11 +9,8 @@ from Hist_Settings import hist_dict
 # Here are the functions for fitting J/Psi MC, using the fit's shape to fit data (letting some parameters loose)
 # and finally getting parameters for smearing from all of this
 
-# todo: generalize functions to work with both m(ee) and m(Kee) (different obs, rework format_data(data))
-# todo: use extended pdfs instead of pdfs to produced composed model incorporating backgrounds
+
 # formatting data into zfit-compatible format
-
-
 def format_data(data, obs):
     return zfit.Data.from_numpy(obs, data.to_numpy())
 
@@ -108,7 +105,12 @@ def plot_fit_result(models, data, obs, tags, plt_name):
 
     x_plot = np.linspace(lower[-1][0], upper[0][0], num=1000)
     for model_name, model in models.items():
-        main_axes.plot(x_plot, model.pdf(x_plot) * plot_scale, label=model_name)
+        if type(model) is zfit.models.functor.SumPDF:
+            print("Plotting extended PDF")
+            main_axes.plot(x_plot, model.ext_pdf(x_plot) * obs.area() / h_num_bins, label=model_name)
+        else:
+            main_axes.plot(x_plot, model.pdf(x_plot) * plot_scale, label=model_name)
+            print("Plotting non-extended PDF")
     main_axes.legend(title=plot_label, loc="best")
     plt.savefig("../Output/{0}_fit_plot_{1}_{2}_run_{3}.pdf".format(plt_name, b_tag, t_tag, r_tag))
     plt.close()

@@ -30,7 +30,7 @@ data_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection
 
 mc_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection", "J_psi_1S_M_TRUE",
                "e_plus_BremMultiplicity", "e_minus_BremMultiplicity", "L0TISOnly_d", "L0ETOSOnly_d",
-               "J_psi_1S_TRACK_M"]
+               "J_psi_1S_TRACK_M", "B_plus_M_TRUE"]
 
 
 def extract_from_vector(x):
@@ -94,6 +94,8 @@ def create_new_vars(df, sample):
         df["TRUE_q2"] = df["TRUE_q2"].apply(to_GeVsq)
 
     elif "data" in sample:
+        df["J_psi_1S_M_TRUE"] = 3096.9  # pdg
+        df["B_plus_M_TRUE"] = 5279.26  # pdg
         df["TRUE_q2"] = (3096.9 / 1000) ** 2
 
     # df["q2_res"] = np.vectorize(calc_q2_res)(q2, TRUE_q2)

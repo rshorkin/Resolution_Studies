@@ -6,6 +6,7 @@ import pandas
 
 from Service import *
 from Fitting import *
+from Smearing import smear
 
 initial_params_dict = {"mee": {'mu': 3097., 'sigma': 20., 'alphal': 0.15, 'nl': 50., 'alphar': 0.9, 'nr': 3.},
                        "mKee": {'mu': 5250., 'sigma': 40., 'alphal': 0.4, 'nl': 24., 'alphar': 0.9, 'nr': 3.}}
@@ -28,9 +29,11 @@ def full_analysis(_data):
     if switch == 0:
         option = "mee"
         x_var = "J_psi_1S_M"
+        mass = 3096.9
     elif switch == 1:
         option = "mKee"
         x_var = "B_plus_M"
+        mass = 5279.26
     else:
         raise ValueError("Error! Choice is not in (0, 1)!")
     obs = obs_dict[option]
@@ -50,16 +53,35 @@ def full_analysis(_data):
                 plot_histogram(jpsi_df, tags, tags["sample"] + "_" + option)
 
                 ini_model = create_initial_model(initial_params, obs, tags)
-                models["ini_model"] = ini_model
-                parameters = initial_fitter(jpsi_df[x_var], ini_model, obs)
+                models["initial model"] = ini_model
+                mc_fit_params = initial_fitter(jpsi_df[x_var], ini_model, obs)
                 plot_fit_result(models, jpsi_df[x_var], obs, tags, tags["sample"] + "_" + option)
 
                 data_df = data_sample.query("brem_cat == @brem_tag and trig_cat == @trig_tag")
                 tags["sample"] = "data"
                 plot_histogram(data_df, tags, tags["sample"] + "_" + option)
 
-                _, fin_model = create_data_fit_model(data_df[x_var], parameters, obs, tags)
-                models["fin model"] = fin_model
+                data_fit_params, fin_model = create_data_fit_model(data_df[x_var], mc_fit_params, obs, tags)
+                models["final model"] = fin_model
+                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option)
+
+                smearing_params = {"mass": mass}
+                for param_name, param_value in mc_fit_params.items():
+                    if "mu" in param_name:
+                        smearing_params["mu"] = param_value
+                for param_name, param_value in data_fit_params.items():
+                    if "delta_mu" in param_name:
+                        smearing_params["delta_mu"] = param_value["value"]
+                    if "scale_sigma" in param_name:
+                        smearing_params["scale_sigma"] = param_value["value"]
+
+                jpsi_df = smear(jpsi_df, smearing_params, x_var)
+
+                tags["run_num"] = str(run_tag) + "smeared"
+                sm_model = create_initial_model(initial_params, obs, tags)
+                models["smeared model"] = sm_model
+                _ = initial_fitter(jpsi_df[x_var + "_smeared"], sm_model, obs)
+
                 plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option)
 
 
