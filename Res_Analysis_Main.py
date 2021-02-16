@@ -8,14 +8,8 @@ from Service import *
 from Fitting import *
 from Smearing import smear
 
-initial_params_dict = {"mee": {
-    "brem_zero": {'mu': 3070., 'sigma': 20., 'alphal': 0.15, 'nl': 100., 'alphar': 3., 'nr': 1.5},
-    "brem_one": {'mu': 3070., 'sigma': 40., 'alphal': 0.3, 'nl': 50., 'alphar': 1., 'nr': 3.},
-    "brem_two": {'mu': 3070., 'sigma': 25., 'alphal': 0.2, 'nl': 100., 'alphar': 1.5, 'nr': 1.}},
-    "mKee": {
-        "brem_zero": {'mu': 5250., 'sigma': 40., 'alphal': 0.4, 'nl': 24., 'alphar': 0.9, 'nr': 3.},
-        "brem_one": {'mu': 5250., 'sigma': 40., 'alphal': 0.4, 'nl': 24., 'alphar': 0.9, 'nr': 3.},
-        "brem_two": {'mu': 5250., 'sigma': 40., 'alphal': 0.4, 'nl': 24., 'alphar': 0.9, 'nr': 3.}}}
+initial_params_dict = {"mee": {'mu': 3097., 'sigma': 20., 'alphal': 0.15, 'nl': 50., 'alphar': 0.9, 'nr': 3.},
+                       "mKee": {'mu': 5250., 'sigma': 40., 'alphal': 0.4, 'nl': 24., 'alphar': 0.9, 'nr': 3.}}
 
 obs_dict = {"mee": zfit.Space('J_psi_1S_M', limits=(2200, 3800)),
             "mKee": zfit.Space('B_plus_M', limits=(4600, 6200))}
@@ -24,7 +18,6 @@ obs_dict = {"mee": zfit.Space('J_psi_1S_M', limits=(2200, 3800)),
 data = get_data_from_files()  # the result is {1: {"data": df1, "Jpsi_MC: df2, "rare_MC": df3}, 2: {...}}
 data = categorize_by_brem(data)  # creates an additional column with brem tags
 data = categorize_by_trig(data)  # creates an additional column with trig tags
-zfit.run.set_graph_mode(False)
 
 
 # create a few helper functions
@@ -60,12 +53,12 @@ def full_analysis(_data):
     else:
         raise ValueError("Error! Choice is not in (0, 1)!")
     obs = obs_dict[option]
+    initial_params = initial_params_dict[option]
 
     for run_tag, data_run in _data.items():
         jpsi_sample = data_run["Jpsi_MC"]
         data_sample = data_run["data"]
         for brem_tag in brem_tags:
-            initial_params = initial_params_dict[option][brem_tag]
             for trig_tag in trigger_tags:
                 print("Working on {0} {1} samples".format(brem_tag, trig_tag))
                 models = {}
