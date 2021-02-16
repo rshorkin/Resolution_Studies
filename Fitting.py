@@ -3,6 +3,7 @@ import zfit
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import AutoMinorLocator
+import csv
 
 from Hist_Settings import hist_dict
 
@@ -25,11 +26,11 @@ def create_initial_model(initial_parameters, obs, tags):
     # Double Crystal Ball for each category, like in RK
 
     mu = zfit.Parameter("mu" + name_tags(tags), initial_parameters['mu'],
-                        initial_parameters['mu'] - 100., initial_parameters['mu'] + 100.)
+                        initial_parameters['mu'] - 200., initial_parameters['mu'] + 200.)
     sigma = zfit.Parameter('sigma' + name_tags(tags), initial_parameters['sigma'], 1., 100.)
-    alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0., 5.)
+    alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0., 3.)
     nl = zfit.Parameter('nl' + name_tags(tags), initial_parameters['nl'], 0., 200.)
-    alphar = zfit.Parameter('alphar' + name_tags(tags), initial_parameters['alphar'], 0., 5.)
+    alphar = zfit.Parameter('alphar' + name_tags(tags), initial_parameters['alphar'], 0., 10.)
     nr = zfit.Parameter('nr' + name_tags(tags), initial_parameters['nr'], 0., 200.)
 
     model = zfit.pdf.DoubleCB(obs=obs, mu=mu, sigma=sigma, alphal=alphal, nl=nl, alphar=alphar, nr=nr)
@@ -46,18 +47,18 @@ def initial_fitter(data, model, obs):
     minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
     result = minimizer.minimize(nll)
     if result.valid:
-        print(f'>>> Result is valid')
+        print("Result is valid")
         print("Converged:", result.converged)
         param_errors = result.hesse()
         params = result.params
         print(params)
         if not result.valid:
-            print(f'>>> Error calculation failed \n>>> Result is not valid')
+            print("Error calculation failed \nResult is not valid")
             return None
         else:
             return {param[0].name: param[1]['value'] for param in result.params.items()}
     else:
-        print(f'>>> Minimization failed \n>>> Result: \n{result}')
+        print('Minimization failed \nResult: \n{0}'.format(result))
         return None
 
 
@@ -65,14 +66,8 @@ def initial_fitter(data, model, obs):
 
 def plot_fit_result(models, data, obs, tags, plt_name):
     r_tag = tags["run_num"]
-    if "brem_cat" in tags:
-        b_tag = tags["brem_cat"]
-    else:
-        b_tag = "all brem cats"
-    if "trig_cat" in tags:
-        t_tag = tags["trig_cat"]
-    else:
-        t_tag = "all trig cats"
+    b_tag = tags["brem_cat"]
+    t_tag = tags["trig_cat"]
 
     lower, upper = obs.limits
 
@@ -106,13 +101,11 @@ def plot_fit_result(models, data, obs, tags, plt_name):
     x_plot = np.linspace(lower[-1][0], upper[0][0], num=1000)
     for model_name, model in models.items():
         if type(model) is zfit.models.functor.SumPDF:
-            print("Plotting extended PDF")
             main_axes.plot(x_plot, model.ext_pdf(x_plot) * obs.area() / h_num_bins, label=model_name)
         else:
             main_axes.plot(x_plot, model.pdf(x_plot) * plot_scale, label=model_name)
-            print("Plotting non-extended PDF")
     main_axes.legend(title=plot_label, loc="best")
-    plt.savefig("../Output/{0}_fit_plot_{1}_{2}_run_{3}.pdf".format(plt_name, b_tag, t_tag, r_tag))
+    plt.savefig("../Output/{0}/{0}_fit_plot_{1}_{2}_run_{3}.pdf".format(plt_name, b_tag, t_tag, r_tag))
     plt.close()
 
 
@@ -131,18 +124,29 @@ def n_scaled_fn(x, scale_x):
     return x / scale_x
 
 
+def write_to_csv(parameters, tags, plt_name):
+    r_tag = tags["run_num"]
+    b_tag = tags["brem_cat"]
+    t_tag = tags["trig_cat"]
+
+    with open(str("../CSV-Output/{0}/{0}_fit_{1}_{2}_run_{3}.csv".format(plt_name, b_tag, t_tag, r_tag)),
+              mode="w") as data_file:
+        key_names = [key for key in parameters.keys()]
+        data_writer = csv.DictWriter(data_file, fieldnames=key_names)
+        data_writer.writeheader()
+        for index in range(len(parameters[key_names[0]])):
+            data_writer.writerow({key: parameters[key] for key in key_names})
+
+
 # data fitting and getting smearing parameters
 def create_data_fit_model(data, parameters, obs, tags):
-    if "brem_cat" in tags:
-        b_tag = tags["brem_cat"]
-    else:
-        b_tag = "all_brem"
     num_events = len(data.index)
     data = format_data(data, obs)
+    b_tag = tags["brem_cat"]
     # Initializing new model parameters to save the previous model for comparison
     # Floating parameters, required for smearing
-    shift_mu = zfit.Parameter('delta_mu' + name_tags(tags), 0., -100., 100.)
-    scale_sigma = zfit.Parameter('scale_sigma' + name_tags(tags), 1., 0.1, 5.)
+    shift_mu = zfit.Parameter('delta_mu' + name_tags(tags), 0., -200., 200.)
+    scale_sigma = zfit.Parameter('scale_sigma' + name_tags(tags), 1., 0.01, 10.)
 
     # main fit parameters, not allowed to float (though we explicitly say which parameters to float later)
     mu = zfit.Parameter('data_mu' + name_tags(tags),
@@ -193,9 +197,9 @@ def create_data_fit_model(data, parameters, obs, tags):
 
     # Make models extended and combine them
     n_sig = zfit.Parameter("n_signal" + name_tags(tags),
-                           int(num_events * 0.999), int(num_events * 0.7), int(num_events * 1.1), step_size=1)
+                           int(num_events * 0.999), int(num_events * 0.5), int(num_events * 1.2), step_size=1)
     n_bgr = zfit.Parameter("n_bgr" + name_tags(tags),
-                           int(num_events * 0.001), 0, int(num_events * 0.3), step_size=1)
+                           int(num_events * 0.001), 0, int(num_events * 0.5), step_size=1)
 
     model_extended = model.create_extended(n_sig)
     model_bgr_extended = model_bgr.create_extended(n_bgr)
@@ -215,5 +219,6 @@ def create_data_fit_model(data, parameters, obs, tags):
     print("Result Valid:", result.valid)
     print("Fit converged:", result.converged)
     print(result.params)
+    models = {"combined": model, "signal": model_extended, "background": model_bgr_extended}  # need for tests
     return {param[0].name: {"value": param[1]['value'], "error": err[1]['error']}
-            for param, err in zip(result.params.items(), param_errors.items())}, model
+            for param, err in zip(result.params.items(), param_errors.items())}, models
