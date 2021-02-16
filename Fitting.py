@@ -26,11 +26,11 @@ def create_initial_model(initial_parameters, obs, tags):
     # Double Crystal Ball for each category, like in RK
 
     mu = zfit.Parameter("mu" + name_tags(tags), initial_parameters['mu'],
-                        initial_parameters['mu'] - 200., initial_parameters['mu'] + 200.)
+                        initial_parameters['mu'] - 100., initial_parameters['mu'] + 100.)
     sigma = zfit.Parameter('sigma' + name_tags(tags), initial_parameters['sigma'], 1., 100.)
-    alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0., 3.)
+    alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0., 5.)
     nl = zfit.Parameter('nl' + name_tags(tags), initial_parameters['nl'], 0., 200.)
-    alphar = zfit.Parameter('alphar' + name_tags(tags), initial_parameters['alphar'], 0., 10.)
+    alphar = zfit.Parameter('alphar' + name_tags(tags), initial_parameters['alphar'], 0., 5.)
     nr = zfit.Parameter('nr' + name_tags(tags), initial_parameters['nr'], 0., 200.)
 
     model = zfit.pdf.DoubleCB(obs=obs, mu=mu, sigma=sigma, alphal=alphal, nl=nl, alphar=alphar, nr=nr)

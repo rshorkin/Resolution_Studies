@@ -18,6 +18,7 @@ obs_dict = {"mee": zfit.Space('J_psi_1S_M', limits=(2200, 3800)),
 data = get_data_from_files()  # the result is {1: {"data": df1, "Jpsi_MC: df2, "rare_MC": df3}, 2: {...}}
 data = categorize_by_brem(data)  # creates an additional column with brem tags
 data = categorize_by_trig(data)  # creates an additional column with trig tags
+# zfit.run.set_graph_mode(False)
 
 
 # create a few helper functions
@@ -65,6 +66,7 @@ def full_analysis(_data):
                 tags = {"run_num": str(run_tag), "brem_cat": brem_tag, "trig_cat": trig_tag}
 
                 jpsi_df = jpsi_sample.query(query_str)
+                print("MC EVENTS:", len(jpsi_df.index))
                 tags["sample"] = "Jpsi_MC"
                 plot_histogram(jpsi_df, tags, tags["sample"] + "_" + option)
 
