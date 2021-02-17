@@ -192,7 +192,7 @@ def create_data_fit_model(data, parameters, obs, tags):
                               alphal=alphal, nl=nl, alphar=alphar_scaled, nr=nr_scaled)
 
     # Background model: exponential
-    lambd = zfit.Parameter("lambda" + name_tags(tags), -0.005, -0.1, 0.1)
+    lambd = zfit.Parameter("lambda" + name_tags(tags), -0.005, -0.1, 0.)
     model_bgr = zfit.pdf.Exponential(lambd, obs=obs)
 
     # Make models extended and combine them
@@ -210,7 +210,7 @@ def create_data_fit_model(data, parameters, obs, tags):
     minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
 
     # minimization of shift and scale factors
-    if b_tag == "b_zero":
+    if b_tag == "brem_zero":
         result = minimizer.minimize(nll, params=[lambd, n_sig, n_bgr, mu_shifted, sigma_scaled])
     else:
         result = minimizer.minimize(nll, params=[lambd, n_sig, n_bgr, mu_shifted, sigma_scaled, scale_r])
