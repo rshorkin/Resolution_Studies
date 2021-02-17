@@ -25,7 +25,7 @@ data = categorize_by_trig(data)  # creates an additional column with trig tags
 def full_analysis(_data):
     data_select = int(input("Choose the type of analysis\n0 for all trigger and brem categories\n"
                             "1 for all brem categories (trigger independent)\n"
-                            "2 for all trigger categories (brem independent) (NOT RECOMMENDED)\n"))
+                            "2 for all trigger categories (brem independent) (NOT RECOMMENDED)\n"))  # not implemented
 
     if data_select == 0:
         trigger_tags = ["TIS", "eTOS"]
