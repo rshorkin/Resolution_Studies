@@ -192,14 +192,14 @@ def create_data_fit_model(data, parameters, obs, tags):
                               alphal=alphal, nl=nl, alphar=alphar_scaled, nr=nr_scaled)
 
     # Background model: exponential
-    lambd = zfit.Parameter("lambda" + name_tags(tags), -0.005, -0.1, 0.)
+    lambd = zfit.Parameter("lambda" + name_tags(tags), -0.005, -1., 0.)
     model_bgr = zfit.pdf.Exponential(lambd, obs=obs)
 
     # Make models extended and combine them
     n_sig = zfit.Parameter("n_signal" + name_tags(tags),
-                           int(num_events * 0.999), int(num_events * 0.5), int(num_events * 1.2), step_size=1)
+                           int(num_events * 0.99), int(num_events * 0.6), int(num_events * 1.2), step_size=1)
     n_bgr = zfit.Parameter("n_bgr" + name_tags(tags),
-                           int(num_events * 0.001), 0, int(num_events * 0.5), step_size=1)
+                           int(num_events * 0.01), 0, int(num_events * 0.4), step_size=1)
 
     model_extended = model.create_extended(n_sig)
     model_bgr_extended = model_bgr.create_extended(n_bgr)

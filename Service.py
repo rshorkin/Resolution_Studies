@@ -63,9 +63,9 @@ def calc_q2_res(q2, true_q2):
 def read_file(path, sample, branches):
     print("=====")
     print("Processing {0} file".format(sample))
-    mc = uproot.open(path)["DecayTree"]
-    numevents = uproot.numentries(path, "DecayTree")
-    df = mc.pandas.df(branches, flatten=False, entrystop=numevents * fraction)
+    with uproot.open(path) as file:
+        tree = file["DecayTree"]
+        df = tree.arrays(branches, library='pd')
 
     num_before_cuts = len(df.index)
     print("Events before cuts: {0}".format(num_before_cuts))
@@ -76,7 +76,7 @@ def read_file(path, sample, branches):
 
     df = df.query("q2 > 6.0 and q2 < 12.96")  # according to LHCb-ANA-2017-042, Section 5.4.1, table 3
     df = df.query("B_plus_DTFM_M > 5200 and B_plus_DTFM_M < 5680")  # same, Section 6.9 (stricter cut)
-    df = df.query("BDT_score_selection >= 0.85")  # 85% of signal
+    df = df.query("BDT_score_selection >= 0.8")  # 85% of signal
 
     num_after_cuts = len(df.index)
     print("Number of events after cuts: {0}".format(num_after_cuts))

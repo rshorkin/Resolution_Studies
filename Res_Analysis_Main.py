@@ -72,7 +72,7 @@ def full_analysis(_data):
 
                 print("####==========####\nFitting MC")
                 ini_model = create_initial_model(initial_params, obs, tags)
-                models["initial model"] = ini_model
+                models["original MC fit"] = ini_model
                 mc_fit_params = initial_fitter(jpsi_df[x_var], ini_model, obs)
                 plot_fit_result(models, jpsi_df[x_var], obs, tags, tags["sample"] + "_" + option)
 
@@ -105,7 +105,8 @@ def full_analysis(_data):
                 print("####==========####\nFitting smeared MC")
                 tags["run_num"] = str(run_tag) + "smeared"
                 sm_model = create_initial_model(initial_params, obs, tags)
-                models["smeared model"] = sm_model
+                models["smeared MC fit"] = sm_model
+                del models["final model"]
                 _ = initial_fitter(jpsi_df[x_var + "_smeared"], sm_model, obs)
 
                 plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option)
