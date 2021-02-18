@@ -26,12 +26,12 @@ def create_initial_model(initial_parameters, obs, tags):
     # Double Crystal Ball for each category, like in RK
 
     mu = zfit.Parameter("mu" + name_tags(tags), initial_parameters['mu'],
-                        initial_parameters['mu'] - 100., initial_parameters['mu'] + 100.)
+                        initial_parameters['mu'] - 200., initial_parameters['mu'] + 200.)
     sigma = zfit.Parameter('sigma' + name_tags(tags), initial_parameters['sigma'], 1., 100.)
-    alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0., 5.)
-    nl = zfit.Parameter('nl' + name_tags(tags), initial_parameters['nl'], 0., 200.)
-    alphar = zfit.Parameter('alphar' + name_tags(tags), initial_parameters['alphar'], 0., 5.)
-    nr = zfit.Parameter('nr' + name_tags(tags), initial_parameters['nr'], 0., 200.)
+    alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0.01, 5.)
+    nl = zfit.Parameter('nl' + name_tags(tags), initial_parameters['nl'], 0.1, 400.)
+    alphar = zfit.Parameter('alphar' + name_tags(tags), initial_parameters['alphar'], 0.01, 10.)
+    nr = zfit.Parameter('nr' + name_tags(tags), initial_parameters['nr'], 0.1, 100.)
 
     model = zfit.pdf.DoubleCB(obs=obs, mu=mu, sigma=sigma, alphal=alphal, nl=nl, alphar=alphar, nr=nr)
     return model
@@ -146,7 +146,7 @@ def create_data_fit_model(data, parameters, obs, tags):
     # Initializing new model parameters to save the previous model for comparison
     # Floating parameters, required for smearing
     shift_mu = zfit.Parameter('delta_mu' + name_tags(tags), 0., -200., 200.)
-    scale_sigma = zfit.Parameter('scale_sigma' + name_tags(tags), 1., 0.01, 10.)
+    scale_sigma = zfit.Parameter('scale_sigma' + name_tags(tags), 1., 0.001, 100.)
 
     # main fit parameters, not allowed to float (though we explicitly say which parameters to float later)
     mu = zfit.Parameter('data_mu' + name_tags(tags),
@@ -171,7 +171,7 @@ def create_data_fit_model(data, parameters, obs, tags):
     if b_tag == "b_zero:":
         scale_r = zfit.Parameter('sc_r' + name_tags(tags), 1., floating=False)
     else:
-        scale_r = zfit.Parameter('sc_r' + name_tags(tags), 1., 0.1, 10.)
+        scale_r = zfit.Parameter('sc_r' + name_tags(tags), 1., 0.01, 100.)
 
     # Create composed parameters
     mu_shifted = zfit.ComposedParameter("mu_shifted" + name_tags(tags),
@@ -192,7 +192,7 @@ def create_data_fit_model(data, parameters, obs, tags):
                               alphal=alphal, nl=nl, alphar=alphar_scaled, nr=nr_scaled)
 
     # Background model: exponential
-    lambd = zfit.Parameter("lambda" + name_tags(tags), -0.005, -1., 0.)
+    lambd = zfit.Parameter("lambda" + name_tags(tags), -0.00005, -1., 0.)
     model_bgr = zfit.pdf.Exponential(lambd, obs=obs)
 
     # Make models extended and combine them

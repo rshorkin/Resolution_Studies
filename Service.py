@@ -205,11 +205,13 @@ def get_data_from_files():
         data["run" + str(switch_run)] = get_data_given_run(switch_run)
     else:
         raise ValueError("Error! Incorrect choice. Needed a number in (0, 1, 2)")
-
+    problematic_runs = []
     for run, run_df in data.items():
         if not run_df:
             print(f"The entire set of ntuples of {run} is missing. Proceeding with another run if possible")
-            del run_df
+            problematic_runs.append(run)
+    for p_run in problematic_runs:
+        del data[p_run]
     if data:
         return data
     else:
@@ -267,9 +269,9 @@ def categorize_by_trig(data):
     print("Dividing data into trig categories")
 
     for run_num, data_run in data.items():
-        print("Processing run {0} data".format(run_num))
+        print(f"Processing run {run_num} data")
         for s, data_sample in data_run.items():
-            print("Processing {0} sample".format(s))
+            print(f"Processing {s} sample")
 
             TIS_cut = cuts.get_cuts(name="L0TISnoeTS", year=run_num, channel="electron")
             eTOS_cut = cuts.get_cuts(name='L0eTOSnoTIS', year=run_num, channel="electron")

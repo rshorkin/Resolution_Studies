@@ -5,13 +5,12 @@ import numpy as np
 import pandas
 import yaml
 from rkhq import cuts, parse_name
+from Hist_Settings import initial_params_dict
 
 from Service import *
 from Fitting import *
 from Smearing import smear
 
-initial_params_dict = {"mee": {'mu': 3097., 'sigma': 20., 'alphal': 0.15, 'nl': 50., 'alphar': 0.9, 'nr': 3.},
-                       "mKee": {'mu': 5250., 'sigma': 40., 'alphal': 0.4, 'nl': 24., 'alphar': 0.9, 'nr': 3.}}
 
 obs_dict = {"mee": zfit.Space('J_psi_1S_M', limits=(2200, 3800)),
             "mKee": zfit.Space('B_plus_M', limits=(4600, 6200))}
@@ -20,7 +19,7 @@ obs_dict = {"mee": zfit.Space('J_psi_1S_M', limits=(2200, 3800)),
 data = get_data_from_files()  # the result is {1: {"data": df1, "Jpsi_MC: df2, "rare_MC": df3}, 2: {...}}
 data = categorize_by_brem(data)  # creates an additional column with brem tags
 data = categorize_by_trig(data)  # creates an additional column with trig tags
-# zfit.run.set_graph_mode(False)
+zfit.run.set_graph_mode(False)
 
 
 # create a few helper functions
@@ -56,12 +55,12 @@ def full_analysis(_data):
     else:
         raise ValueError("Error! Choice is not in (0, 1)!")
     obs = obs_dict[option]
-    initial_params = initial_params_dict[option]
 
     for run_tag, data_run in _data.items():
         jpsi_sample = data_run["Jpsi_MC"]
         data_sample = data_run["data"]
         for brem_tag in brem_tags:
+            initial_params = initial_params_dict[option][brem_tag]
             for trig_tag in trigger_tags:
                 print("Working on {0} {1} samples".format(brem_tag, trig_tag))
                 models = {}
@@ -70,26 +69,26 @@ def full_analysis(_data):
                 jpsi_df = jpsi_sample.query(query_str)
                 print("MC EVENTS:", len(jpsi_df.index))
                 tags["sample"] = "Jpsi_MC"
-                plot_histogram(jpsi_df, tags, tags["sample"] + "_" + option)
+                # plot_histogram(jpsi_df, tags, tags["sample"] + "_" + option)    # test
 
                 print("####==========####\nFitting MC")
                 ini_model = create_initial_model(initial_params, obs, tags)
                 models["original MC fit"] = ini_model
                 mc_fit_params = initial_fitter(jpsi_df[x_var], ini_model, obs)
-                plot_fit_result(models, jpsi_df[x_var], obs, tags, tags["sample"] + "_" + option)
+                plot_fit_result(models, jpsi_df[x_var], obs, tags, tags["sample"] + "_" + option)  # test
 
                 data_df = data_sample.query(query_str)
                 tags["sample"] = "data"
-                plot_histogram(data_df, tags, tags["sample"] + "_" + option)
+                # plot_histogram(data_df, tags, tags["sample"] + "_" + option)   # test
 
                 print("####==========####\nFitting data")
                 data_fit_params, fin_models = create_data_fit_model(data_df[x_var], mc_fit_params, obs, tags)
                 write_to_csv(data_fit_params, tags, tags["sample"] + "_" + option)
                 models["final model"] = fin_models["combined"]
-                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option)
+                # plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option)    # test
                 tags["run_num"] = "2_test"
-                plot_fit_result(fin_models, data_df[x_var], obs, tags, tags["sample"] + "_" + option)
-                tags["run_num"] = "2"
+                # plot_fit_result(fin_models, data_df[x_var], obs, tags, tags["sample"] + "_" + option)  # test
+                tags["run_num"] = "run2"
 
                 print("####==========####\nSmearing MC")
                 smearing_params = {"mass": mass}
@@ -105,7 +104,7 @@ def full_analysis(_data):
                 jpsi_df = smear(jpsi_df, smearing_params, x_var)
 
                 print("####==========####\nFitting smeared MC")
-                tags["run_num"] = str(run_tag) + "smeared"
+                tags["run_num"] = str(run_tag) + "_smeared"
                 sm_model = create_initial_model(initial_params, obs, tags)
                 models["smeared MC fit"] = sm_model
                 del models["final model"]

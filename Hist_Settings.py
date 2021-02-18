@@ -1,3 +1,14 @@
+initial_params_dict = {"mee": {
+    "brem_zero": {'mu': 3100., 'sigma': 21., 'alphal': 0.2, 'nl': 50, 'alphar': 3.0, 'nr': 3.5},
+    "brem_one": {'mu': 3100., 'sigma': 54., 'alphal': 0.23, 'nl': 3.5, 'alphar': 0.5, 'nr': 18.},
+    "brem_two": {'mu': 3100., 'sigma': 42., 'alphal': 0.7, 'nl': 3.5, 'alphar': 0.3, 'nr': 3.5}},
+
+    "mKee": {
+        "brem_zero": {'mu': 5250., 'sigma': 30., 'alphal': 0.2, 'nl': 50., 'alphar': 3.0, 'nr': 3.5},
+        "brem_one": {'mu': 5250., 'sigma': 40., 'alphal': 0.4, 'nl': 24., 'alphar': 0.9, 'nr': 3.},
+        "brem_two": {'mu': 5300., 'sigma': 40., 'alphal': 0.4, 'nl': 24., 'alphar': 0.9, 'nr': 3.}}
+}
+
 data_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection", "e_plus_BremMultiplicity",
                  "e_minus_BremMultiplicity", "L0TISOnly_d", "L0ETOSOnly_d", "J_psi_1S_TRACK_M",
                  'e_plus_L0Calo_ECAL_realET', 'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_minus_L0ElectronDecision_TOS',
