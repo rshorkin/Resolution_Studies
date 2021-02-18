@@ -9,8 +9,10 @@ import csv
 import time
 from matplotlib.ticker import AutoMinorLocator
 from pandas import Series, DataFrame
+from rkhq import cuts, parse_name
+import os
 
-from Hist_Settings import hist_dict
+from Hist_Settings import hist_dict, data_branches, mc_branches
 
 # General functions for the first step of resolution analysis. Extracting ntuples, creating new variables, cutting.
 # The reading hierarchy: file -> sample -> year -> run. The final product is a dictionary with run numbers as keys
@@ -24,13 +26,6 @@ samples = {"data": "B2Kee_",
 samples_keys = ["data", "rare_MC", "Jpsi_MC"]
 
 common_path = "/media/roman/Backup Plus/resolution_data/"  # !!! change this to your data directory path !!!
-
-data_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection", "e_plus_BremMultiplicity",
-                 "e_minus_BremMultiplicity", "L0TISOnly_d", "L0ETOSOnly_d", "J_psi_1S_TRACK_M"]
-
-mc_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection", "J_psi_1S_M_TRUE",
-               "e_plus_BremMultiplicity", "e_minus_BremMultiplicity", "L0TISOnly_d", "L0ETOSOnly_d",
-               "J_psi_1S_TRACK_M", "B_plus_M_TRUE"]
 
 
 def extract_from_vector(x):
@@ -141,22 +136,28 @@ def read_sample(sample, year):  # right now reads 1 sample from 2 ntuples (idk h
         # example MC file:
         # Path/To/Ntuples/MC/mc_B2KJpsi_2016_MD_folded_truth_fullTrig_fullPresel_bdt.root
 
+        if not os.path.exists(path):
+            print("Didn't find {0} file dated year {1}".format(sample, year))
+            break
+
         if sample == "data":
             branches = data_branches
         elif "MC" in sample:
             branches = mc_branches
-        else:
-            raise ValueError("Error! Didn't find {0} sample from {1} at {2}!".format(sample, year, path))
 
         temp_df = read_file(path, sample, branches)
         temp_df = create_new_vars(temp_df, sample)
         frames.append(temp_df)
-    df_sample = pandas.concat(frames)
 
-    print("###==========###")
-    print("Finished processing {0} samples".format(sample))
-    print("Time elapsed: {0} seconds".format(time.time() - start))
-    return df_sample
+    if os.path.exists(path):
+        print("###==========###")
+        print("Finished processing {0} samples".format(sample))
+        print("Time elapsed: {0} seconds".format(time.time() - start))
+        df_sample = pandas.concat(frames)
+        return df_sample
+
+    else:
+        return None
 
 
 def get_data_given_year(year):
@@ -174,11 +175,11 @@ def get_data_given_run(run):
     temp_data_run = {}
     data_run = {}
     if run == 1:
-        years = []  # must fill in once I know what years go where
+        years = ["2011", "2012"]
     elif run == 2:
-        years = ["2018"]  # same
+        years = ["2015", "2016", "2017", "2018"]
     elif run not in (1, 2):
-        raise ValueError("Error! Run number {0} not in (1, 2).".format(run))
+        raise ValueError(f"Error! Run number {run} not in (1, 2).")
     for year in years:
         temp_data_run[year] = get_data_given_year(year)
 
@@ -186,9 +187,11 @@ def get_data_given_run(run):
     for s in samples_keys:
         same_sample_dfs = []
         for y in years:
-            same_sample_dfs.append(temp_data_run[y][s])
-        df_run = pandas.concat(same_sample_dfs)
-        data_run[s] = df_run
+            if temp_data_run[y][s] is not None:
+                same_sample_dfs.append(temp_data_run[y][s])
+        if same_sample_dfs:
+            df_run = pandas.concat(same_sample_dfs)
+            data_run[s] = df_run
     return data_run
 
 
@@ -197,12 +200,20 @@ def get_data_from_files():
     data = {}
     if switch_run == 0:
         for run in (1, 2):
-            data[run] = get_data_given_run(run)
+            data["run" + str(run)] = get_data_given_run(run)
     elif switch_run == 1 or switch_run == 2:
-        data[switch_run] = get_data_given_run(switch_run)
+        data["run" + str(switch_run)] = get_data_given_run(switch_run)
     else:
         raise ValueError("Error! Incorrect choice. Needed a number in (0, 1, 2)")
-    return data
+
+    for run, run_df in data.items():
+        if not run_df:
+            print(f"The entire set of ntuples of {run} is missing. Proceeding with another run if possible")
+            del run_df
+    if data:
+        return data
+    else:
+        raise FileNotFoundError("All the data for the chosen run or runs is missing")
 
 
 # each sample must be broken into different brem and trigger categories. 2 trigger cats, 3 brem cats
@@ -255,13 +266,16 @@ def categorize_by_trig(data):
     print("=====")
     print("Dividing data into trig categories")
 
-    TIS_cut = "L0TISOnly_d == 1"
-    eTOS_cut = "L0ETOSOnly_d == 1"
-
     for run_num, data_run in data.items():
         print("Processing run {0} data".format(run_num))
         for s, data_sample in data_run.items():
             print("Processing {0} sample".format(s))
+
+            TIS_cut = cuts.get_cuts(name="L0TISnoeTS", year=run_num, channel="electron")
+            eTOS_cut = cuts.get_cuts(name='L0eTOSnoTIS', year=run_num, channel="electron")
+
+            TIS_cut = TIS_cut.to_numexpr()
+            eTOS_cut = eTOS_cut.to_numexpr()
 
             TIS_df = data_sample.copy()
             TIS_df = TIS_df.query(TIS_cut)
