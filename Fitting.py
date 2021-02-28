@@ -7,6 +7,7 @@ import csv
 
 from Hist_Settings import hist_dict
 
+
 # Here are the functions for fitting J/Psi MC, using the fit's shape to fit data (letting some parameters loose)
 # and finally getting parameters for smearing from all of this
 
@@ -64,10 +65,31 @@ def initial_fitter(data, model, obs):
 
 # Plotting
 
-def plot_fit_result(models, data, obs, tags, plt_name):
+def plot_fit_result(models, data, p_params, obs, tags, plt_name):
     r_tag = tags["run_num"]
     b_tag = tags["brem_cat"]
     t_tag = tags["trig_cat"]
+
+    tags["run_num"] = "run2"
+
+    delta_mu_v = p_params["delta_mu" + name_tags(tags)]["value"]
+    delta_mu_err = p_params["delta_mu" + name_tags(tags)]["error"]
+    lambd_v = p_params["lambda" + name_tags(tags)]["value"]
+    lambd_err = p_params["lambda" + name_tags(tags)]["error"]
+    n_bkgr_v = p_params["n_bgr" + name_tags(tags)]["value"]
+    n_bkgr_err = p_params["n_bgr" + name_tags(tags)]["error"]
+    n_sig_v = p_params["n_signal" + name_tags(tags)]["value"]
+    n_sig_err = p_params["n_signal" + name_tags(tags)]["error"]
+    sigma_sc_v = p_params["scale_sigma" + name_tags(tags)]["value"]
+    sigma_sc_err = p_params["scale_sigma" + name_tags(tags)]["error"]
+
+    tags["run_num"] = "run2_smeared"
+
+    text = f"$\Delta_\mu = {delta_mu_v:.2f} \pm {delta_mu_err:.2f}$\n" \
+           f"$\lambda = {lambd_v:.2g} \pm {lambd_err:.2g}$\n" \
+           f"$N_b = {n_bkgr_v:.5f} \pm {n_bkgr_err:.2g}$\n" \
+           f"$N_s = {n_sig_v:.0f} \pm {n_sig_err:.0f}$\n" \
+           f"$s_\sigma = {sigma_sc_v:.3f} \pm {sigma_sc_err:.3f}$"
 
     lower, upper = obs.limits
 
@@ -104,8 +126,9 @@ def plot_fit_result(models, data, obs, tags, plt_name):
             main_axes.plot(x_plot, model.ext_pdf(x_plot) * obs.area() / h_num_bins, label=model_name)
         else:
             main_axes.plot(x_plot, model.pdf(x_plot) * plot_scale, label=model_name)
-    main_axes.legend(title=plot_label, loc="best")
-    plt.savefig("../Output/{0}/{0}_fit_plot_{1}_{2}_run_{3}.pdf".format(plt_name, b_tag, t_tag, r_tag))
+    main_axes.legend(title=plot_label, loc="upper left")
+    plt.text(0.65, 0.70, text, transform=main_axes.transAxes)
+    plt.savefig(f"../Output/{plt_name}/{plt_name}_fit_plot_{b_tag}_{t_tag}_{r_tag}.pdf")
     plt.close()
 
 

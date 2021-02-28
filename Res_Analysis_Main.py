@@ -12,7 +12,7 @@ from Fitting import *
 from Smearing import smear
 
 
-obs_dict = {"mee": zfit.Space('J_psi_1S_M', limits=(2200, 3800)),
+obs_dict = {"mee": zfit.Space('J_psi_1S_M', limits=(2520, 3800)),
             "mKee": zfit.Space('B_plus_M', limits=(4600, 6200))}
 
 # get data, tag it with brem and trigger tags
@@ -23,7 +23,7 @@ zfit.run.set_graph_mode(False)
 
 
 # create a few helper functions
-def full_analysis(_data):
+def full_analysis_w_brem(_data):
     data_select = int(input("Choose the type of analysis\n0 for all trigger and brem categories\n"
                             "1 for all brem categories (trigger independent)\n"
                             "2 for all trigger categories (brem independent) (NOT RECOMMENDED)\n"))  # not implemented
@@ -75,7 +75,7 @@ def full_analysis(_data):
                 ini_model = create_initial_model(initial_params, obs, tags)
                 models["original MC fit"] = ini_model
                 mc_fit_params = initial_fitter(jpsi_df[x_var], ini_model, obs)
-                plot_fit_result(models, jpsi_df[x_var], obs, tags, tags["sample"] + "_" + option)  # test
+                # plot_fit_result(models, jpsi_df[x_var], obs, tags, tags["sample"] + "_" + option)  # test
 
                 data_df = data_sample.query(query_str)
                 tags["sample"] = "data"
@@ -110,7 +110,22 @@ def full_analysis(_data):
                 del models["final model"]
                 _ = initial_fitter(jpsi_df[x_var + "_smeared"], sm_model, obs)
 
-                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option)
+                plot_fit_result(models, data_df[x_var], data_fit_params, obs, tags, tags["sample"] + "_" + option)
 
 
-full_analysis(data)
+def full_analysis_no_brem(_data):
+    option = "nobrem_mee"
+    for run_tag, data_run in _data.items():
+        tags = {"run_num": str(run_tag), "brem_cat": "no_brem", "trig_cat": "all"}
+
+        jpsi_sample = data_run["Jpsi_MC"]
+        tags["sample"] = "Jpsi_MC"
+        plot_histogram(jpsi_sample, tags, tags["sample"] + "_" + option)
+
+        data_sample = data_run["data"]
+        tags["sample"] = "data"
+        plot_histogram(data_sample, tags, tags["sample"] + "_" + option)
+
+
+full_analysis_w_brem(data)
+# full_analysis_no_brem(data)

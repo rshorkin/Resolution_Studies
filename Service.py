@@ -338,4 +338,4 @@ def plot_histogram(data, tags, plt_name):
     main_axes.set_ylabel(h_ylabel)
     main_axes.set_xlabel(h_xlabel)
     # plt.show()
-    plt.savefig("../Output/Hist_run{0}_{1}_{2}_{3}.pdf".format(run_num, s, b, t))
+    plt.savefig("../Output/Hist_{0}_{1}_{2}_{3}.pdf".format(run_num, s, b, t))
