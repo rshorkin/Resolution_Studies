@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import AutoMinorLocator
 import csv
+from scipy.stats import chisquare
+import mplhep as hep
 
 from Hist_Settings import hist_dict
 
@@ -23,18 +25,58 @@ def name_tags(tags):
 
 
 # Creating initial model to fit J/Psi
-def create_initial_model(initial_parameters, obs, tags):
-    # Double Crystal Ball for each category, like in RK
+def create_initial_model(initial_parameters, obs, tags, switch="brem", params=None):
+    # Double Crystal Ball for q2
+    if switch == "brem":
 
-    mu = zfit.Parameter("mu" + name_tags(tags), initial_parameters['mu'],
-                        initial_parameters['mu'] - 200., initial_parameters['mu'] + 200.)
-    sigma = zfit.Parameter('sigma' + name_tags(tags), initial_parameters['sigma'], 1., 100.)
-    alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0.01, 5.)
-    nl = zfit.Parameter('nl' + name_tags(tags), initial_parameters['nl'], 0.1, 400.)
-    alphar = zfit.Parameter('alphar' + name_tags(tags), initial_parameters['alphar'], 0.01, 10.)
-    nr = zfit.Parameter('nr' + name_tags(tags), initial_parameters['nr'], 0.1, 100.)
+        mu = zfit.Parameter("mu" + name_tags(tags), initial_parameters['mu'],
+                            initial_parameters['mu'] - 200., initial_parameters['mu'] + 200.)
+        sigma = zfit.Parameter('sigma' + name_tags(tags), initial_parameters['sigma'], 1., 100.)
+        alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0.01, 5.)
+        nl = zfit.Parameter('nl' + name_tags(tags), initial_parameters['nl'], 0.1, 400.)
+        alphar = zfit.Parameter('alphar' + name_tags(tags), initial_parameters['alphar'], 0.01, 10.)
+        nr = zfit.Parameter('nr' + name_tags(tags), initial_parameters['nr'], 0.1, 100.)
 
-    model = zfit.pdf.DoubleCB(obs=obs, mu=mu, sigma=sigma, alphal=alphal, nl=nl, alphar=alphar, nr=nr)
+        model = zfit.pdf.DoubleCB(obs=obs, mu=mu, sigma=sigma, alphal=alphal, nl=nl, alphar=alphar, nr=nr)
+
+    # gauss + exp for q2 no brem
+    elif switch == "nobrem":
+
+        mu = zfit.Parameter("mu" + name_tags(tags), 3078.,
+                            0., 4000.)
+        sigma = zfit.Parameter('sigma' + name_tags(tags), 213., 1., 500.)
+        lambd = zfit.Parameter("lambda" + name_tags(tags), initial_parameters['lambda'], 0.0001, 20.)
+        frac = zfit.Parameter("frac" + name_tags(tags), 0.22, 0., 1.)
+
+        low = zfit.Parameter("low" + name_tags(tags), 500., 300., 3100.)
+        high = zfit.Parameter("high" + name_tags(tags), 3100., 300., 3100.)
+
+        coeff1 = zfit.Parameter("coeff1" + name_tags(tags), 3.5, 0., 10.)
+        coeff2 = zfit.Parameter("coeff2" + name_tags(tags), 0.2, 0., 100.)
+        coeff3 = zfit.Parameter("coeff3" + name_tags(tags), 0.2, 0., 100.)
+
+        gauss = zfit.pdf.TruncatedGauss(low=low, mu=mu, sigma=sigma, obs=obs, high=high)
+        exponent = zfit.pdf.Exponential(lambd, obs=obs)
+        rec_poly = zfit.pdf.Legendre(obs=obs, coeffs=[coeff1, coeff2, coeff3])
+
+        model = zfit.pdf.SumPDF([gauss, rec_poly], fracs=frac)
+        model = rec_poly
+    elif switch == "smearedMC":
+        mu = zfit.Parameter("mu" + name_tags(tags), initial_parameters['mu'],
+                            initial_parameters['mu'] - 200., initial_parameters['mu'] + 200.)
+        sigma = zfit.Parameter('sigma' + name_tags(tags), initial_parameters['sigma'], 1., 100.)
+        alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0.01, 5.)
+        nl = zfit.Parameter('nl' + name_tags(tags), initial_parameters['nl'], 0.1, 400.)
+
+        alphar = zfit.Parameter('alphar' + name_tags(tags),
+                                params[f"alphar_scaled_{tags['brem_cat']}_{tags['trig_cat']}_run2"],
+                                floating=False)
+        nr = zfit.Parameter('nr' + name_tags(tags),
+                            params[f"nr_scaled_{tags['brem_cat']}_{tags['trig_cat']}_run2"],
+                            floating=False)
+
+        model = zfit.pdf.DoubleCB(obs=obs, mu=mu, sigma=sigma, alphal=alphal, nl=nl, alphar=alphar, nr=nr)
+
     return model
 
 
@@ -65,31 +107,38 @@ def initial_fitter(data, model, obs):
 
 # Plotting
 
-def plot_fit_result(models, data, p_params, obs, tags, plt_name):
+def plot_fit_result(models, data, obs, tags, plt_name, p_params=None):
     r_tag = tags["run_num"]
     b_tag = tags["brem_cat"]
     t_tag = tags["trig_cat"]
 
     tags["run_num"] = "run2"
+    if p_params:
+        delta_mu_v = p_params["delta_mu" + name_tags(tags)]["value"]
+        delta_mu_err = p_params["delta_mu" + name_tags(tags)]["error"]
+        lambd_v = p_params["lambda" + name_tags(tags)]["value"]
+        lambd_err = p_params["lambda" + name_tags(tags)]["error"]
+        n_bkgr_v = p_params["n_bgr" + name_tags(tags)]["value"]
+        n_bkgr_err = p_params["n_bgr" + name_tags(tags)]["error"]
+        n_sig_v = p_params["n_signal" + name_tags(tags)]["value"]
+        n_sig_err = p_params["n_signal" + name_tags(tags)]["error"]
+        sigma_sc_v = p_params["scale_sigma" + name_tags(tags)]["value"]
+        sigma_sc_err = p_params["scale_sigma" + name_tags(tags)]["error"]
+        if b_tag != "brem_zero":
+            s_r_v = p_params['sc_r' + name_tags(tags)]["value"]
+            s_r_err = p_params['sc_r' + name_tags(tags)]["error"]
+        else:
+            s_r_v = 1.
+            s_r_err = 0.
 
-    delta_mu_v = p_params["delta_mu" + name_tags(tags)]["value"]
-    delta_mu_err = p_params["delta_mu" + name_tags(tags)]["error"]
-    lambd_v = p_params["lambda" + name_tags(tags)]["value"]
-    lambd_err = p_params["lambda" + name_tags(tags)]["error"]
-    n_bkgr_v = p_params["n_bgr" + name_tags(tags)]["value"]
-    n_bkgr_err = p_params["n_bgr" + name_tags(tags)]["error"]
-    n_sig_v = p_params["n_signal" + name_tags(tags)]["value"]
-    n_sig_err = p_params["n_signal" + name_tags(tags)]["error"]
-    sigma_sc_v = p_params["scale_sigma" + name_tags(tags)]["value"]
-    sigma_sc_err = p_params["scale_sigma" + name_tags(tags)]["error"]
+        text = f"$\Delta_\mu = {delta_mu_v:.2f} \pm {delta_mu_err:.2f}$\n" \
+               f"$\lambda = {lambd_v:.2g} \pm {lambd_err:.2g}$\n" \
+               f"$N_b = {n_bkgr_v:.5f} \pm {n_bkgr_err:.2g}$\n" \
+               f"$N_s = {n_sig_v:.0f} \pm {n_sig_err:.0f}$\n" \
+               f"$s_\sigma = {sigma_sc_v:.3f} \pm {sigma_sc_err:.3f}$\n" \
+               f"$s_r = {s_r_v:.3f} \pm {s_r_err:.3f}$"
 
     tags["run_num"] = "run2_smeared"
-
-    text = f"$\Delta_\mu = {delta_mu_v:.2f} \pm {delta_mu_err:.2f}$\n" \
-           f"$\lambda = {lambd_v:.2g} \pm {lambd_err:.2g}$\n" \
-           f"$N_b = {n_bkgr_v:.5f} \pm {n_bkgr_err:.2g}$\n" \
-           f"$N_s = {n_sig_v:.0f} \pm {n_sig_err:.0f}$\n" \
-           f"$s_\sigma = {sigma_sc_v:.3f} \pm {sigma_sc_err:.3f}$"
 
     lower, upper = obs.limits
 
@@ -104,14 +153,18 @@ def plot_fit_result(models, data, p_params, obs, tags, plt_name):
     bins = [h_xmin + x * h_bin_width for x in range(h_num_bins + 1)]
     bin_centers = [h_xmin + h_bin_width / 2 + x * h_bin_width for x in range(h_num_bins)]
 
-    data_x, _ = np.histogram(data.values, bins=bins)
-    data_sum = data_x.sum()
-    plot_scale = data_sum * obs.area() / h_num_bins
-
     plt.clf()
     plt.axes([0.1, 0.30, 0.85, 0.65])
     main_axes = plt.gca()
-    main_axes.errorbar(bin_centers, data_x, xerr=h_bin_width / 2, fmt="ok", label=tags["sample"])
+
+    if data is not None:
+        data_x, _ = np.histogram(data.values, bins=bins)
+        data_sum = data_x.sum()
+        plot_scale = data_sum * obs.area() / h_num_bins
+
+        # main_axes.errorbar(bin_centers, data_x, xerr=h_bin_width / 2, fmt="ok", label=tags["sample"])
+        hep.histplot(main_axes.hist(data.values, bins=bins, log=False, facecolor="none"),
+                     color="black", yerr=True, histtype="errorbar", label=tags["sample"])
 
     main_axes.set_xlim(h_xmin, h_xmax)
 
@@ -121,13 +174,33 @@ def plot_fit_result(models, data, p_params, obs, tags, plt_name):
     main_axes.set_xlabel(h_xlabel)
 
     x_plot = np.linspace(lower[-1][0], upper[0][0], num=1000)
+    data_bins = np.linspace(lower[-1][0], upper[0][0], num=h_num_bins)
+
+    chisqs = {}
+    p_values = {}
+    colors = ["b", "k", "r"]
+    i = 0
     for model_name, model in models.items():
         if type(model) is zfit.models.functor.SumPDF:
-            main_axes.plot(x_plot, model.ext_pdf(x_plot) * obs.area() / h_num_bins, label=model_name)
+            main_axes.plot(x_plot, model.ext_pdf(x_plot) * obs.area() / h_num_bins, colors[i],
+                           label=model_name)
+            # model.get_yield()
+            # chisqs[model_name], p_values[model_name] = chisquare(data_x,
+            # (model.ext_pdf(data_bins) * obs.area() / h_num_bins))
         else:
-            main_axes.plot(x_plot, model.pdf(x_plot) * plot_scale, label=model_name)
+            main_axes.plot(x_plot, model.pdf(x_plot) * plot_scale, colors[i], label=model_name)
+            # chisqs[model_name], p_values[model_name] = chisquare(data_x,
+        i = i + 1  # (model.pdf(data_bins) * plot_scale))
     main_axes.legend(title=plot_label, loc="upper left")
-    plt.text(0.65, 0.70, text, transform=main_axes.transAxes)
+
+    if not p_params:
+        text = ""
+    # for model_name in models.keys():
+    # add_text = f"\n{model_name} $\chi^2$ = {chisqs[model_name]:.1f}"
+    # text += add_text
+
+    plt.text(0.60, 0.60, text, transform=main_axes.transAxes)
+
     plt.savefig(f"../Output/{plt_name}/{plt_name}_fit_plot_{b_tag}_{t_tag}_{r_tag}.pdf")
     plt.close()
 
@@ -194,7 +267,7 @@ def create_data_fit_model(data, parameters, obs, tags):
     if b_tag == "b_zero:":
         scale_r = zfit.Parameter('sc_r' + name_tags(tags), 1., floating=False)
     else:
-        scale_r = zfit.Parameter('sc_r' + name_tags(tags), 1., 0.01, 100.)
+        scale_r = zfit.Parameter('sc_r' + name_tags(tags), 1., 0.01, 1.15)
 
     # Create composed parameters
     mu_shifted = zfit.ComposedParameter("mu_shifted" + name_tags(tags),
@@ -222,7 +295,7 @@ def create_data_fit_model(data, parameters, obs, tags):
     n_sig = zfit.Parameter("n_signal" + name_tags(tags),
                            int(num_events * 0.99), int(num_events * 0.6), int(num_events * 1.2), step_size=1)
     n_bgr = zfit.Parameter("n_bgr" + name_tags(tags),
-                           int(num_events * 0.01), 0, int(num_events * 0.4), step_size=1)
+                           int(num_events * 0.01), 0., int(num_events * 0.4), step_size=1)
 
     model_extended = model.create_extended(n_sig)
     model_bgr_extended = model_bgr.create_extended(n_bgr)
@@ -245,3 +318,47 @@ def create_data_fit_model(data, parameters, obs, tags):
     models = {"combined": model, "signal": model_extended, "background": model_bgr_extended}  # need for tests
     return {param[0].name: {"value": param[1]['value'], "error": err[1]['error']}
             for param, err in zip(result.params.items(), param_errors.items())}, models
+
+
+def combine_models(models, data, obs, tags):
+    num_events = len(data.index)
+    data = format_data(data, obs)
+    tags["brem_cat"] = ""
+
+    if not models["brem_zero"].is_extended:
+
+        n_zero = zfit.Parameter("n_zero" + tags["sample"] + name_tags(tags),
+                                int(num_events * 0.25), int(num_events * 0.1), int(num_events * 0.4), step_size=1)
+        n_one = zfit.Parameter("n_one" + tags["sample"] + name_tags(tags),
+                               int(num_events * 0.5), int(num_events * 0.3), int(num_events * 0.7), step_size=1)
+        n_two = zfit.Parameter("n_two" + tags["sample"] + name_tags(tags),
+                               int(num_events * 0.25), int(num_events * 0.1), int(num_events * 0.4), step_size=1)
+
+        models["brem_zero"] = models["brem_zero"].create_extended(n_zero)
+        models["brem_one"] = models["brem_one"].create_extended(n_one)
+        models["brem_two"] = models["brem_two"].create_extended(n_two)
+
+        model = zfit.pdf.SumPDF([models["brem_zero"], models["brem_one"], models["brem_two"]])
+
+        nll = zfit.loss.ExtendedUnbinnedNLL(model=model, data=data)
+        minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
+
+        result = minimizer.minimize(nll, params=[n_zero, n_one, n_two])
+    else:
+        frac_0 = zfit.Parameter("frac_zero" + tags["sample"] + name_tags(tags), 0.25, 0.1, 0.8)
+        frac_1 = zfit.Parameter("frac_one" + tags["sample"] + name_tags(tags), 0.5, 0.1, 0.8)
+        model = zfit.pdf.SumPDF([models["brem_zero"], models["brem_one"], models["brem_two"]], fracs=[frac_0, frac_1])
+        n_yeild = zfit.Parameter("yield" + tags["sample"] + name_tags(tags),
+                                 num_events, 0., num_events * 1.2, step_size=1)
+        model = model.create_extended(n_yeild)
+        nll = zfit.loss.ExtendedUnbinnedNLL(model=model, data=data)
+        minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
+
+        result = minimizer.minimize(nll, params=[frac_0, frac_1])
+
+    param_errors = result.hesse()
+    print("Result Valid:", result.valid)
+    print("Fit converged:", result.converged)
+    print(result.params)
+
+    return model

@@ -196,8 +196,9 @@ def get_data_given_run(run):
 
 
 def get_data_from_files():
-    switch_run = int(input("Please choose a data taking period to analyse.\n0 for all, 1 for run 1, 2 for run 2.\n"))
+    # switch_run = int(input("Please choose a data taking period to analyse.\n0 for all, 1 for run 1, 2 for run 2.\n"))
     data = {}
+    switch_run = 0
     if switch_run == 0:
         for run in (1, 2):
             data["run" + str(run)] = get_data_given_run(run)
