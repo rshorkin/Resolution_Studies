@@ -146,26 +146,65 @@ def full_analysis_w_brem(_data):
 
 
 def full_analysis_no_brem(_data):
-    obs = zfit.Space('J_psi_1S_TRACK_M', limits=(300, 3100))
+    obs = zfit.Space('mee_nobrem', limits=(300, 3300))
     models = {}
     option = "mee_nobrem"
     initial_params = initial_params_dict[option]
     x_var = "J_psi_1S_TRACK_M"
+    mass = 3096.9
     for run_tag, data_run in _data.items():
         tags = {"run_num": str(run_tag), "brem_cat": "nobrem", "trig_cat": "all"}
 
         data_sample = data_run["data"]
         tags["sample"] = "data"
         plot_histogram(data_sample, tags, tags["sample"] + "_" + option)
+        print(min(data_sample['J_psi_1S_TRACK_M']))
+        print(max(data_sample['J_psi_1S_TRACK_M']))
 
         jpsi_sample = data_run["Jpsi_MC"]
         tags["sample"] = "Jpsi_MC"
+        print(max(jpsi_sample['J_psi_1S_TRACK_M']))
+        print(min(jpsi_sample['J_psi_1S_TRACK_M']))
+
         plot_histogram(jpsi_sample, tags, tags["sample"] + "_" + option)
 
         ini_model = create_initial_model(initial_params, obs, tags, switch="nobrem")
         models["initial MC fit"] = ini_model
         mc_fit_params = initial_fitter(jpsi_sample[x_var], ini_model, obs)
         plot_fit_result(models, jpsi_sample[x_var], obs, tags, tags["sample"] + "_" + option)
+
+        print("####==========####\nFitting data")
+        tags["sample"] = "data"
+        data_fit_params, fin_models = create_data_fit_model(data_sample[x_var], mc_fit_params, obs, tags)
+        tags["run_num"] = "run2_data"
+        models["data fit"] = fin_models["combined"]
+        plot_fit_result(models, data_sample[x_var], obs, tags, tags["sample"] + "_" + option)  # test
+        tags["run_num"] = "run2"
+
+        print("####==========####\nSmearing MC")
+        smearing_params = {"mass": mass}
+        for param_name, param_value in mc_fit_params.items():
+            if "mu" in param_name:
+                smearing_params["mu"] = param_value
+        for param_name, param_value in data_fit_params.items():
+            if "delta_mu" in param_name:
+                smearing_params["delta_mu"] = param_value["value"]
+            if "scale_sigma" in param_name:
+                smearing_params["scale_sigma"] = param_value["value"]
+
+        jpsi_df = smear(jpsi_sample, smearing_params, x_var)
+
+        print("####==========####\nFitting smeared MC")
+        tags["run_num"] = str(run_tag) + "_smeared"
+        # if brem_tag != "brem_zero":
+        # sm_model = create_initial_model(initial_params, obs, tags, switch="smearedMC",
+        #     params=data_fit_params)
+        # else:
+        sm_model = create_initial_model(initial_params, obs, tags)
+        models["smeared MC fit"] = sm_model
+        _ = initial_fitter(jpsi_df[x_var + "_smeared"], sm_model, obs)
+
+        plot_fit_result(models, data_sample[x_var], obs, tags, tags["sample"] + "_" + option, data_fit_params)
 
 
 def plot_hists(dict, plt_name, tags):
@@ -183,5 +222,7 @@ def plot_hists(dict, plt_name, tags):
     plt.savefig(f"../Output/data_vs_smeared_mc_{tags['brem_cat']}_{tags['trig_cat']}.pdf")
     plt.close()
 
+
 full_analysis_w_brem(data)
+
 # full_analysis_no_brem(data)

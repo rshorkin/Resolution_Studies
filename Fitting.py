@@ -42,25 +42,15 @@ def create_initial_model(initial_parameters, obs, tags, switch="brem", params=No
     # gauss + exp for q2 no brem
     elif switch == "nobrem":
 
-        mu = zfit.Parameter("mu" + name_tags(tags), 3078.,
-                            0., 4000.)
-        sigma = zfit.Parameter('sigma' + name_tags(tags), 213., 1., 500.)
-        lambd = zfit.Parameter("lambda" + name_tags(tags), initial_parameters['lambda'], 0.0001, 20.)
-        frac = zfit.Parameter("frac" + name_tags(tags), 0.22, 0., 1.)
+        mu = zfit.Parameter("mu" + name_tags(tags), initial_parameters['mu'],
+                            initial_parameters['mu'] - 500., initial_parameters['mu'] + 500.)
+        sigma = zfit.Parameter('sigma' + name_tags(tags), initial_parameters['sigma'], 1., 1000.)
+        alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0.001, 50.)
+        nl = zfit.Parameter('nl' + name_tags(tags), initial_parameters['nl'], 0.1, 800.)
+        alphar = zfit.Parameter('alphar' + name_tags(tags), initial_parameters['alphar'], 0.001, 50.)
+        nr = zfit.Parameter('nr' + name_tags(tags), initial_parameters['nr'], 0.1, 800.)
+        model = zfit.pdf.DoubleCB(obs=obs, mu=mu, sigma=sigma, alphal=alphal, nl=nl, alphar=alphar, nr=nr)
 
-        low = zfit.Parameter("low" + name_tags(tags), 500., 300., 3100.)
-        high = zfit.Parameter("high" + name_tags(tags), 3100., 300., 3100.)
-
-        coeff1 = zfit.Parameter("coeff1" + name_tags(tags), 3.5, 0., 10.)
-        coeff2 = zfit.Parameter("coeff2" + name_tags(tags), 0.2, 0., 100.)
-        coeff3 = zfit.Parameter("coeff3" + name_tags(tags), 0.2, 0., 100.)
-
-        gauss = zfit.pdf.TruncatedGauss(low=low, mu=mu, sigma=sigma, obs=obs, high=high)
-        exponent = zfit.pdf.Exponential(lambd, obs=obs)
-        rec_poly = zfit.pdf.Legendre(obs=obs, coeffs=[coeff1, coeff2, coeff3])
-
-        model = zfit.pdf.SumPDF([gauss, rec_poly], fracs=frac)
-        model = rec_poly
     elif switch == "smearedMC":
         mu = zfit.Parameter("mu" + name_tags(tags), initial_parameters['mu'],
                             initial_parameters['mu'] - 200., initial_parameters['mu'] + 200.)
@@ -112,8 +102,8 @@ def plot_fit_result(models, data, obs, tags, plt_name, p_params=None):
     b_tag = tags["brem_cat"]
     t_tag = tags["trig_cat"]
 
-    tags["run_num"] = "run2"
     if p_params:
+        tags["run_num"] = "run2"
         delta_mu_v = p_params["delta_mu" + name_tags(tags)]["value"]
         delta_mu_err = p_params["delta_mu" + name_tags(tags)]["error"]
         lambd_v = p_params["lambda" + name_tags(tags)]["value"]
@@ -124,7 +114,7 @@ def plot_fit_result(models, data, obs, tags, plt_name, p_params=None):
         n_sig_err = p_params["n_signal" + name_tags(tags)]["error"]
         sigma_sc_v = p_params["scale_sigma" + name_tags(tags)]["value"]
         sigma_sc_err = p_params["scale_sigma" + name_tags(tags)]["error"]
-        if b_tag != "brem_zero":
+        if b_tag == "brem_one":
             s_r_v = p_params['sc_r' + name_tags(tags)]["value"]
             s_r_err = p_params['sc_r' + name_tags(tags)]["error"]
         else:
@@ -138,7 +128,7 @@ def plot_fit_result(models, data, obs, tags, plt_name, p_params=None):
                f"$s_\sigma = {sigma_sc_v:.3f} \pm {sigma_sc_err:.3f}$\n" \
                f"$s_r = {s_r_v:.3f} \pm {s_r_err:.3f}$"
 
-    tags["run_num"] = "run2_smeared"
+        tags["run_num"] = "run2_smeared"
 
     lower, upper = obs.limits
 
@@ -181,7 +171,7 @@ def plot_fit_result(models, data, obs, tags, plt_name, p_params=None):
     colors = ["b", "k", "r"]
     i = 0
     for model_name, model in models.items():
-        if type(model) is zfit.models.functor.SumPDF:
+        if model.is_extended:
             main_axes.plot(x_plot, model.ext_pdf(x_plot) * obs.area() / h_num_bins, colors[i],
                            label=model_name)
             # model.get_yield()
@@ -267,7 +257,7 @@ def create_data_fit_model(data, parameters, obs, tags):
     if b_tag == "b_zero:":
         scale_r = zfit.Parameter('sc_r' + name_tags(tags), 1., floating=False)
     else:
-        scale_r = zfit.Parameter('sc_r' + name_tags(tags), 1., 0.01, 1.15)
+        scale_r = zfit.Parameter('sc_r' + name_tags(tags), 1., 0.01, 2.)
 
     # Create composed parameters
     mu_shifted = zfit.ComposedParameter("mu_shifted" + name_tags(tags),
@@ -306,7 +296,7 @@ def create_data_fit_model(data, parameters, obs, tags):
     minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
 
     # minimization of shift and scale factors
-    if b_tag == "brem_zero":
+    if b_tag == "brem_zero" or b_tag == 'brem_two':
         result = minimizer.minimize(nll, params=[lambd, n_sig, n_bgr, mu_shifted, sigma_scaled])
     else:
         result = minimizer.minimize(nll, params=[lambd, n_sig, n_bgr, mu_shifted, sigma_scaled, scale_r])

@@ -93,7 +93,8 @@ def create_new_vars(df, sample):
         df["B_plus_M_TRUE"] = 5279.26  # pdg
         df["TRUE_q2"] = (3096.9 / 1000) ** 2
 
-    # df["q2_res"] = np.vectorize(calc_q2_res)(q2, TRUE_q2)
+    df["q2_nobrem"] = (df['J_psi_1S_TRACK_M'] / 1000) ** 2
+
     # let's get the fits first
     return df
 
@@ -329,7 +330,7 @@ def plot_histogram(data, tags, plt_name):
     plt.clf()
     plt.axes([0.1, 0.30, 0.85, 0.65])
     main_axes = plt.gca()
-    main_axes.errorbar(bin_centers, data_x, xerr=16, fmt="ok", label=s)
+    main_axes.errorbar(bin_centers, data_x, xerr=h_bin_width / 2, fmt="ok", label=s)
 
     main_axes.legend(title=plot_label, loc="best")
     main_axes.set_xlim(h_xmin, h_xmax)
