@@ -107,11 +107,11 @@ def full_analysis_w_brem(_data):
 
                 print("####==========####\nFitting smeared MC")
                 tags["run_num"] = str(run_tag) + "_smeared"
-                # if brem_tag != "brem_zero":
-                # sm_model = create_initial_model(initial_params, obs, tags, switch="smearedMC",
-                #     params=data_fit_params)
-                # else:
-                sm_model = create_initial_model(initial_params, obs, tags)
+                if brem_tag != "brem_zero":
+                    sm_model = create_initial_model(initial_params, obs, tags, switch="smearedMC",
+                                                    params=data_fit_params)
+                else:
+                    sm_model = create_initial_model(initial_params, obs, tags)
                 models["smeared MC fit"] = sm_model
                 _ = initial_fitter(jpsi_df[x_var + "_smeared"], sm_model, obs)
 

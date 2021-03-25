@@ -59,10 +59,10 @@ def create_initial_model(initial_parameters, obs, tags, switch="brem", params=No
         nl = zfit.Parameter('nl' + name_tags(tags), initial_parameters['nl'], 0.1, 400.)
 
         alphar = zfit.Parameter('alphar' + name_tags(tags),
-                                params[f"alphar_scaled_{tags['brem_cat']}_{tags['trig_cat']}_run2"],
+                                params['alphar']['value'],
                                 floating=False)
         nr = zfit.Parameter('nr' + name_tags(tags),
-                            params[f"nr_scaled_{tags['brem_cat']}_{tags['trig_cat']}_run2"],
+                            params['nr']['value'],
                             floating=False)
 
         model = zfit.pdf.DoubleCB(obs=obs, mu=mu, sigma=sigma, alphal=alphal, nl=nl, alphar=alphar, nr=nr)
@@ -114,7 +114,7 @@ def plot_fit_result(models, data, obs, tags, plt_name, p_params=None):
         n_sig_err = p_params["n_signal" + name_tags(tags)]["error"]
         sigma_sc_v = p_params["scale_sigma" + name_tags(tags)]["value"]
         sigma_sc_err = p_params["scale_sigma" + name_tags(tags)]["error"]
-        if b_tag == "brem_one":
+        if 'sc_r' + name_tags(tags) in p_params.keys():
             s_r_v = p_params['sc_r' + name_tags(tags)]["value"]
             s_r_err = p_params['sc_r' + name_tags(tags)]["error"]
         else:
@@ -172,7 +172,7 @@ def plot_fit_result(models, data, obs, tags, plt_name, p_params=None):
     i = 0
     for model_name, model in models.items():
         if model.is_extended:
-            main_axes.plot(x_plot, model.ext_pdf(x_plot) * obs.area() / h_num_bins, colors[i],
+            main_axes.plot(x_plot, model.ext_pdf(x_plot) * obs.area() / (h_num_bins * model.get_yield()), colors[i],
                            label=model_name)
             # model.get_yield()
             # chisqs[model_name], p_values[model_name] = chisquare(data_x,
@@ -254,7 +254,7 @@ def create_data_fit_model(data, parameters, obs, tags):
                         parameters['nr' + name_tags(tags)],
                         floating=False)
     # Additional floating parameter, required for better simulation of an upper power law tail, only for brem 1, 2
-    if b_tag == "b_zero:":
+    if b_tag == "b_zero":
         scale_r = zfit.Parameter('sc_r' + name_tags(tags), 1., floating=False)
     else:
         scale_r = zfit.Parameter('sc_r' + name_tags(tags), 1., 0.01, 2.)
@@ -296,7 +296,7 @@ def create_data_fit_model(data, parameters, obs, tags):
     minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
 
     # minimization of shift and scale factors
-    if b_tag == "brem_zero" or b_tag == 'brem_two':
+    if b_tag == "brem_zero" or b_tag == 'brem_one' or b_tag == 'brem_two':
         result = minimizer.minimize(nll, params=[lambd, n_sig, n_bgr, mu_shifted, sigma_scaled])
     else:
         result = minimizer.minimize(nll, params=[lambd, n_sig, n_bgr, mu_shifted, sigma_scaled, scale_r])
@@ -306,8 +306,11 @@ def create_data_fit_model(data, parameters, obs, tags):
     print("Fit converged:", result.converged)
     print(result.params)
     models = {"combined": model, "signal": model_extended, "background": model_bgr_extended}  # need for tests
-    return {param[0].name: {"value": param[1]['value'], "error": err[1]['error']}
-            for param, err in zip(result.params.items(), param_errors.items())}, models
+    parameters = {param[0].name: {"value": param[1]['value'], "error": err[1]['error']}
+                  for param, err in zip(result.params.items(), param_errors.items())}
+    parameters["nr"] = {'value': zfit.run(nr_scaled)}
+    parameters['alphar'] = {'value': zfit.run(alphar_scaled)}
+    return parameters, models
 
 
 def combine_models(models, data, obs, tags):
