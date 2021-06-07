@@ -2,45 +2,16 @@ import tensorflow as tf
 import zfit
 import matplotlib.pyplot as plt
 import numpy as np
-import zfit.z as z
-from matplotlib.ticker import AutoMinorLocator, LogLocator, LogFormatterSciNotation
+from matplotlib.ticker import AutoMinorLocator
 import csv
 from scipy.stats import chisquare
 import mplhep as hep
-import math
-import zfit.models.convolution as zconv
 
 from Hist_Settings import hist_dict
 
 
 # Here are the functions for fitting J/Psi MC, using the fit's shape to fit data (letting some parameters loose)
 # and finally getting parameters for smearing from all of this
-class CustomTicker(LogFormatterSciNotation):
-    def __call__(self, x, pos=None):
-        if x not in [1, 10]:
-            return LogFormatterSciNotation.__call__(self, x, pos=None)
-        else:
-            return "{x:g}".format(x=x)
-
-
-class LogNormal(zfit.pdf.BasePDF):
-    def __init__(self, mu, sigma, theta, obs, name='LogNormal', ):
-        params = {'mu': mu, 'sigma': sigma, 'theta': theta}
-        super().__init__(obs, params, name=name)
-
-    def _unnormalized_pdf(self, x):
-        data = z.unstack_x(x)
-        mu = self.params['mu']
-        sigma = self.params['sigma']
-        theta = self.params['theta']
-
-        cond = tf.less(data, -theta)
-        exp_power = -(np.power(np.log(-data - theta) - mu, 2) / (2 * np.power(sigma, 2)))
-        outer_factor = (-data - theta) * sigma * np.sqrt(2 * math.pi)
-        func = tf.where(cond,
-                        np.exp(exp_power) / outer_factor,
-                        0.)
-        return func
 
 
 # formatting data into zfit-compatible format
@@ -51,21 +22,6 @@ def format_data(data, obs):
 # service function for parameter naming
 def name_tags(tags):
     return "_{0}_{1}_{2}".format(tags["brem_cat"], tags["trig_cat"], tags["run_num"])
-
-
-def y(data, mu, theta, sigma):
-    exp_power = -(np.power(np.log(-data - theta) - mu, 2) / (2 * np.power(sigma, 2)))
-    outer_factor = (-data - theta) * sigma * np.sqrt(2 * math.pi)
-    return np.exp(exp_power) / outer_factor
-
-
-def test_model():
-    mu = 7.
-    theta = -3200.
-    sigma = .5
-    x = np.linspace(300., 3200., num=1000)
-    plt.plot(x, y(x, mu, theta, sigma))
-    plt.show()
 
 
 # Creating initial model to fit J/Psi
@@ -85,36 +41,48 @@ def create_initial_model(initial_parameters, obs, tags, switch="brem", params=No
 
     # gauss + exp for q2 no brem
     elif switch == "nobrem":
-        mu_l = zfit.Parameter("l_mu_CB" + name_tags(tags), 2292., 500., 3200.)
-        sigma_l = zfit.Parameter('l_sigma_CB' + name_tags(tags), 280., 0., 700.)
-        alpha_l = zfit.Parameter('l_alpha_CB' + name_tags(tags), 1.7, 0.0001, 10, )
-        n_l = zfit.Parameter('l_n_CB' + name_tags(tags), 73., 0.01, 100.)
+        mu = zfit.Parameter("mu" + name_tags(tags), 1500.,
+                            1200., 2400.)
+        sigma = zfit.Parameter('sigma' + name_tags(tags), 200., 100., 500.)
+        alphal = zfit.Parameter('alphal' + name_tags(tags), 0.05, 0.01, 10.)
+        nl = zfit.Parameter('nl' + name_tags(tags), 10., 0.01, 25.)
+        alphar = zfit.Parameter('alphar' + name_tags(tags), 0.05, 0.01, 10.)
+        nr = zfit.Parameter('nr' + name_tags(tags), 10., 0.01, 20.)
 
-        mu_g = zfit.Parameter("g_mu" + name_tags(tags), 2000., 1200., 3100.)
-        sigma_g = zfit.Parameter('g_sigma' + name_tags(tags), 150., 0., 700.)
+        mu_g = zfit.Parameter("mu_g" + name_tags(tags), 2200., 2200., 3000.)
+        sigma_g = zfit.Parameter('sigma_g' + name_tags(tags), 100., 50., 270.)
+        alphal_g = zfit.Parameter('alphal_g' + name_tags(tags), 0.05, 0.01, 10.)
+        nl_g = zfit.Parameter('nl_g' + name_tags(tags), 10., 0.01, 25.)
+        alphar_g = zfit.Parameter('alphar_g' + name_tags(tags), 0.05, 0.01, 10.)
+        nr_g = zfit.Parameter('nr_g' + name_tags(tags), 10., 0.01, 20.)
 
-        mu_r = zfit.Parameter("r_mu_DCB" + name_tags(tags), 1604., 1500., 3100.)
-        sigma_r = zfit.Parameter('r_sigma_DCB' + name_tags(tags), 367., 2., 600.)
-        ar_r = zfit.Parameter('alphar_DCB' + name_tags(tags), 3., 0.01, 10.)
-        nr_r = zfit.Parameter('nr_DCB' + name_tags(tags), 18., 0.01, 35.)
-        al_r = zfit.Parameter('alphal_DCB' + name_tags(tags), 0.05, 0.01, 10.)
-        nl_r = zfit.Parameter('nl_DCB' + name_tags(tags), 10., 0.01, 35.)
+        mu_g2 = zfit.Parameter("mu_g2" + name_tags(tags), 2920., 2600., 3100.)
+        sigma_g2 = zfit.Parameter('sigma_g2' + name_tags(tags), 10., 2., 150.)
+        alphal_g2 = zfit.Parameter('alphal_g2' + name_tags(tags), 0.5, 0.01, 5.)
+        nl_g2 = zfit.Parameter('nl_g2' + name_tags(tags), 10., 0.01, 20.)
+        alphar_g2 = zfit.Parameter('alphar_g2' + name_tags(tags), 0.5, 0.01, 10.)
+        nr_g2 = zfit.Parameter('nr_g2' + name_tags(tags), 10., 0.01, 20.)
 
-        Left_CB = zfit.pdf.CrystalBall(obs=obs, mu=mu_l, sigma=sigma_l, alpha=alpha_l, n=n_l)
-        Gauss = zfit.pdf.Gauss(obs=obs, mu=mu_g, sigma=sigma_g)
-        DCB = zfit.pdf.DoubleCB(obs=obs, mu=mu_r, sigma=sigma_r, alphal=al_r, nl=nl_r, alphar=ar_r, nr=nr_r)
-        Right_CB = zfit.pdf.CrystalBall(obs=obs, mu=mu_r, sigma=sigma_r, alpha=ar_r, n=nr_r)
+        # mu_g3 = zfit.Parameter("mu_g3" + name_tags(tags), 2800., 2750., 3050.)
+        # sigma_g3 = zfit.Parameter('sigma_g3' + name_tags(tags), 50., 25., 75.)
+        # alphal_g3 = zfit.Parameter('alphal_g3' + name_tags(tags), 0.5, 0.01, 5.)
+        # nl_g3 = zfit.Parameter('nl_g3' + name_tags(tags), 10., 0.01, 20.)
+        # alphar_g3 = zfit.Parameter('alphar_g3' + name_tags(tags), 0.5, 0.01, 10.)
+        # nr_g3 = zfit.Parameter('nr_g3' + name_tags(tags), 10., 0.01, 20.)
 
-        mu = zfit.Parameter('mu', 6.)
-        theta = zfit.Parameter('theta', -3160.)
-        sigma = zfit.Parameter('sigma', .6)
-        Log_n = LogNormal(obs=obs, mu=mu, sigma=sigma, theta=theta)
+        DoubleCB = zfit.pdf.DoubleCB(obs=obs, mu=mu, sigma=sigma, alphal=alphal, nl=nl, alphar=alphar, nr=nr)
+        SecondCB = zfit.pdf.DoubleCB(obs=obs, mu=mu_g, sigma=sigma_g, alphal=alphal_g,
+                                     nl=nl_g, alphar=alphar_g, nr=nr_g)
+        ThirdCB = zfit.pdf.DoubleCB(obs=obs, mu=mu_g2, sigma=sigma_g2, alphal=alphal_g2,
+                                    nl=nl_g2, alphar=alphar_g2, nr=nr_g2)
+        # FourthCB = zfit.pdf.DoubleCB(obs=obs, mu=mu_g3, sigma=sigma_g3, alphal=alphal_g3,
+        #                             nl=nl_g3, alphar=alphar_g3, nr=nr_g3)
 
-        frac1 = zfit.Parameter('frac1' + name_tags(tags), 0.75, 0.01, .99)
-        frac2 = zfit.Parameter('frac2' + name_tags(tags), 0.15, 0.01, .99)
+        frac1 = zfit.Parameter('frac1' + name_tags(tags), 0.3, 0.01, .99)
+        frac2 = zfit.Parameter('frac2' + name_tags(tags), 0.3, 0.01, .99)
+        # frac3 = zfit.Parameter('frac3' + name_tags(tags), 0.3, 0.01, .99)
 
-        model = zfit.pdf.SumPDF([Log_n, Left_CB, Right_CB], fracs=[frac1, frac2])
-
+        model = zfit.pdf.SumPDF([DoubleCB, SecondCB, ThirdCB], fracs=[frac1, frac2])
     elif switch == "smearedMC":
         mu = zfit.Parameter("mu" + name_tags(tags), initial_parameters['mu'],
                             initial_parameters['mu'] - 200., initial_parameters['mu'] + 200.)
@@ -161,11 +129,37 @@ def initial_fitter(data, model, obs):
 
 # Plotting
 
-def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switch=False):
+def plot_fit_result(models, data, obs, tags, plt_name, p_params=None):
     r_tag = tags["run_num"]
     b_tag = tags["brem_cat"]
     t_tag = tags["trig_cat"]
-    if smeared:
+
+    if p_params:
+        tags["run_num"] = "run2"
+        delta_mu_v = p_params["delta_mu" + name_tags(tags)]["value"]
+        delta_mu_err = p_params["delta_mu" + name_tags(tags)]["error"]
+        lambd_v = p_params["lambda" + name_tags(tags)]["value"]
+        lambd_err = p_params["lambda" + name_tags(tags)]["error"]
+        n_bkgr_v = p_params["n_bgr" + name_tags(tags)]["value"]
+        n_bkgr_err = p_params["n_bgr" + name_tags(tags)]["error"]
+        n_sig_v = p_params["n_signal" + name_tags(tags)]["value"]
+        n_sig_err = p_params["n_signal" + name_tags(tags)]["error"]
+        sigma_sc_v = p_params["scale_sigma" + name_tags(tags)]["value"]
+        sigma_sc_err = p_params["scale_sigma" + name_tags(tags)]["error"]
+        if 'sc_r' + name_tags(tags) in p_params.keys():
+            s_r_v = p_params['sc_r' + name_tags(tags)]["value"]
+            s_r_err = p_params['sc_r' + name_tags(tags)]["error"]
+        else:
+            s_r_v = 1.
+            s_r_err = 0.
+
+        text = f"$\Delta_\mu = {delta_mu_v:.2f} \pm {delta_mu_err:.2f}$\n" \
+               f"$\lambda = {lambd_v:.2g} \pm {lambd_err:.2g}$\n" \
+               f"$N_b = {n_bkgr_v:.5f} \pm {n_bkgr_err:.2g}$\n" \
+               f"$N_s = {n_sig_v:.0f} \pm {n_sig_err:.0f}$\n" \
+               f"$s_\sigma = {sigma_sc_v:.3f} \pm {sigma_sc_err:.3f}$\n" \
+               f"$s_r = {s_r_v:.3f} \pm {s_r_err:.3f}$"
+
         tags["run_num"] = "run2_smeared"
 
     lower, upper = obs.limits
@@ -182,88 +176,55 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
     bin_centers = [h_xmin + h_bin_width / 2 + x * h_bin_width for x in range(h_num_bins)]
 
     plt.clf()
-    plt.style.use(hep.style.ATLAS)
-    _ = plt.figure(figsize=(9.5, 9))
     plt.axes([0.1, 0.30, 0.85, 0.65])
     main_axes = plt.gca()
-    main_axes.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
-    main_axes.set_title('M(ee) without brem recovery, J/$\psi$ MC, brem one', fontsize=18)
 
     if data is not None:
         data_x, _ = np.histogram(data.values, bins=bins)
-        data_errors = np.sqrt(data_x)
         data_sum = data_x.sum()
         plot_scale = data_sum * obs.area() / h_num_bins
-        main_axes.errorbar(bin_centers, data_x, yerr=np.sqrt(data_x), fmt="ok", label=tags["sample"], markersize='4')
+
+        # main_axes.errorbar(bin_centers, data_x, xerr=h_bin_width / 2, fmt="ok", label=tags["sample"])
+        hep.histplot(main_axes.hist(data.values, bins=bins, log=False, facecolor="none"),
+                     color="black", yerr=True, histtype="errorbar", label=tags["sample"])
 
     main_axes.set_xlim(h_xmin, h_xmax)
+
     main_axes.xaxis.set_minor_locator(AutoMinorLocator())
+
     main_axes.set_ylabel(h_ylabel)
+    main_axes.set_xlabel(h_xlabel)
+
     x_plot = np.linspace(lower[-1][0], upper[0][0], num=1000)
-    data_bins = np.linspace(lower[-1][0], upper[0][0], num=h_num_bins + 1)
+    data_bins = np.linspace(lower[-1][0], upper[0][0], num=h_num_bins)
+
+    chisqs = {}
+    p_values = {}
     colors = ["b", "k", "r"]
     i = 0
     for model_name, model in models.items():
         if model.is_extended:
-            main_axes.plot(x_plot,
-                           model.ext_pdf(x_plot) * obs.area() / (h_num_bins * model.get_yield()),
-                           colors[i],
+            main_axes.plot(x_plot, model.ext_pdf(x_plot) * obs.area() / (h_num_bins * model.get_yield()), colors[i],
                            label=model_name)
-            if pulls_switch:
-                pulls = np.divide(
-                    np.subtract(data_x,
-                                model.ext_pdf(bin_centers) * obs.area() / (h_num_bins * model.get_yield())),
-                    data_errors)
+            # model.get_yield()
+            # chisqs[model_name], p_values[model_name] = chisquare(data_x,
+            # (model.ext_pdf(data_bins) * obs.area() / h_num_bins))
         else:
-            main_axes.plot(x_plot,
-                           model.pdf(x_plot) * plot_scale,
-                           colors[i],
-                           label=model_name)
-            if pulls_switch:
-                pulls = np.divide(
-                    np.subtract(data_x,
-                                model.pdf(bin_centers) * plot_scale),
-                    data_errors)
-        i = i + 1
+            main_axes.plot(x_plot, model.pdf(x_plot) * plot_scale, colors[i], label=model_name)
+            # chisqs[model_name], p_values[model_name] = chisquare(data_x,
+        i = i + 1  # (model.pdf(data_bins) * plot_scale))
     main_axes.legend(title=plot_label, loc="upper left")
-    main_axes.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
 
-    # main_axes.set_yscale('log')
-    # bottom = max([min(data_x) * 0.7, 10.])
-    # main_axes.set_ylim(bottom=bottom)
-    # main_axes.yaxis.set_major_formatter(CustomTicker())
-    # locmin = LogLocator(base=10.0, subs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9), numticks=12)
-    # main_axes.yaxis.set_minor_locator(locmin)
+    if not p_params:
+        text = ""
+    # for model_name in models.keys():
+    # add_text = f"\n{model_name} $\chi^2$ = {chisqs[model_name]:.1f}"
+    # text += add_text
 
-    main_axes.set_ylim(bottom=0)
-    main_axes.set_xticklabels([])
-    # pulls subplot
-    plt.axes([0.1, 0.1, 0.85, 0.2])
-    plt.yscale("linear")
-    pulls_axes = plt.gca()
-    xs = [h_xmin]
-    ys = [pulls[0]]
-    for i in range(h_num_bins - 1):
-        xs.append(h_xmin + h_bin_width * (1 + i))
-        xs.append(h_xmin + h_bin_width * (1 + i))
-        ys.append(pulls[i])
-        ys.append(pulls[i + 1])
-    xs.append(h_xmax)
-    ys.append(pulls[-1])
+    plt.text(0.60, 0.60, text, transform=main_axes.transAxes)
 
-    pulls_axes.plot(xs, ys, color='blue', label='Pulls')
-
-    pulls_axes.set_ylim(-10., 10.)
-    pulls_axes.set_yticks([-5, 0, 5])
-    pulls_axes.xaxis.set_minor_locator(AutoMinorLocator())
-    y_ticks = pulls_axes.yaxis.get_major_ticks()
-    pulls_axes.set_xlabel(h_xlabel)
-    pulls_axes.set_ylabel('Pull')
-    pulls_axes.set_xlim(h_xmin, h_xmax)
-    plt.grid("True", axis="y", color="black", linestyle="--")
-    plt.savefig(f"../Output/{plt_name}/{plt_name}_fit_plot_{b_tag}_{t_tag}_{r_tag}.jpg")
-    plt.show()
-    # plt.close()
+    plt.savefig(f"../Output/{plt_name}/{plt_name}_fit_plot_{b_tag}_{t_tag}_{r_tag}.pdf")
+    plt.close()
 
 
 # Fit data with shape from MC. Allow mean shift and width scale factor to float.

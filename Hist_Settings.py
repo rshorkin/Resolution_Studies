@@ -1,15 +1,22 @@
-initial_params_dict = {"mee": {
-    "brem_zero": {'mu': 3100., 'sigma': 21., 'alphal': 0.2, 'nl': 3.5, 'alphar': 3.0, 'nr': 3.5},
-    "brem_one": {'mu': 3100., 'sigma': 54., 'alphal': 0.23, 'nl': 3.5, 'alphar': 0.5, 'nr': 18.},
-    "brem_two": {'mu': 3100., 'sigma': 42., 'alphal': 0.7, 'nl': 3.5, 'alphar': 0.3, 'nr': 3.5}},
+initial_params_dict = {
+    "mee": {
+        "brem_zero": {'mu': 3100., 'sigma': 21., 'alphal': 0.2, 'nl': 3.5, 'alphar': 3.0, 'nr': 3.5},
+        "brem_one": {'mu': 3100., 'sigma': 54., 'alphal': 0.23, 'nl': 3.5, 'alphar': 0.5, 'nr': 18.},
+        "brem_two": {'mu': 3100., 'sigma': 42., 'alphal': 0.7, 'nl': 3.5, 'alphar': 0.3, 'nr': 3.5}},
 
     "mKee": {
         "brem_zero": {'mu': 5250., 'sigma': 30., 'alphal': 0.2, 'nl': 50., 'alphar': 3.0, 'nr': 3.5},
         "brem_one": {'mu': 5250., 'sigma': 40., 'alphal': 0.4, 'nl': 24., 'alphar': 0.9, 'nr': 3.},
         "brem_two": {'mu': 5300., 'sigma': 40., 'alphal': 0.4, 'nl': 24., 'alphar': 0.9, 'nr': 3.}},
 
-    "q2_nobrem": {'mu': 2800., 'sigma': 100., 'lambda': .6, 'frac': 0.5},
-    "mee_nobrem": {'mu': 3072., 'sigma': 20., 'alphal': .1, 'nl': 100., 'alphar': 0.3, 'nr': 3.5}
+    "mee_nobrem": {
+        "brem_zero": {'mu': 3100., 'sigma': 21., 'alphal': 0.2, 'nl': 3.5, 'alphar': 3.0, 'nr': 3.5},
+        "brem_one": {'mu': 2900., 'sigma': 75., 'alphal': 0.14, 'nl': 100., 'alphar': 8.0, 'nr': 100.,
+                     'mu_g': 2000., 'sigma_g': 100.},
+        "brem_two": {'mu': 2400., 'sigma': 100., 'alphal': 0.2, 'nl': 50., 'alphar': 0.2, 'nr': 50.,
+                     'mu_g': 2000., 'sigma_g': 100.
+                     }
+    }
 }
 
 data_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection", "e_plus_BremMultiplicity",
@@ -17,14 +24,14 @@ data_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection
                  'e_plus_L0Calo_ECAL_realET', 'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_minus_L0ElectronDecision_TOS',
                  'B_plus_L0Global_TIS', 'e_plus_L0ElectronDecision_TOS', 'e_plus_L0Calo_ECAL_realET',
                  'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_plus_L0ElectronDecision_TOS', 'B_plus_L0Global_TIS',
-                 'e_minus_L0ElectronDecision_TOS']
+                 'e_minus_L0ElectronDecision_TOS', 'J_psi_1S_ETA']
 
 mc_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection", "J_psi_1S_M_TRUE",
                "e_plus_BremMultiplicity", "e_minus_BremMultiplicity", "L0TISOnly_d", "L0ETOSOnly_d",
                'e_plus_L0Calo_ECAL_realET', 'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_minus_L0ElectronDecision_TOS',
                'B_plus_L0Global_TIS', 'e_plus_L0ElectronDecision_TOS', 'e_plus_L0Calo_ECAL_realET',
                'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_plus_L0ElectronDecision_TOS', 'B_plus_L0Global_TIS',
-               'e_minus_L0ElectronDecision_TOS', "J_psi_1S_TRACK_M", "B_plus_M_TRUE"]
+               'e_minus_L0ElectronDecision_TOS', "J_psi_1S_TRACK_M", "B_plus_M_TRUE", 'J_psi_1S_ETA']
 
 hist_dict = {"Jpsi_MC_mee": {"plot_label": "$B \\rightarrow KJ/\\psi$",
                              "bin_width": 30,
@@ -63,7 +70,7 @@ hist_dict = {"Jpsi_MC_mee": {"plot_label": "$B \\rightarrow KJ/\\psi$",
                                    "num_bins": 40,
                                    "x_min": 300,
                                    "x_max": 3100,
-                                   "x_label": "M(ee) w/o brem recovery, MeV",
+                                   "x_label": "M(ee) track, MeV",
                                    "y_label": "Events/32 MeV",
                                    "x_var": "q2_nobrem"},
              "q2_nobrem": {"plot_label": "$B \\rightarrow KJ/\\psi$",
@@ -71,23 +78,31 @@ hist_dict = {"Jpsi_MC_mee": {"plot_label": "$B \\rightarrow KJ/\\psi$",
                            "num_bins": 70,
                            "x_min": 0.,
                            "x_max": 14.,
-                           "x_label": "$q^2$ w/o brem recovery, $GeV^2$",
+                           "x_label": "$q^2$ track, $GeV^2$",
                            "y_label": "Events/.2 $GeV^2$",
                            "x_var": "q2_nobrem"},
              "data_mee_nobrem": {"plot_label": "$B \\rightarrow KJ/\\psi$",
-                                 "bin_width": 50,
-                                 "num_bins": 60,
+                                 "bin_width": 100,
+                                 "num_bins": 30,
                                  "x_min": 300.,
                                  "x_max": 3300.,
-                                 "x_label": "M(ee) w/o brem recovery, MeV",
-                                 "y_label": "Events/50 MeV",
+                                 "x_label": "M(ee) track, MeV",
+                                 "y_label": "Events/100 MeV",
                                  "x_var": "J_psi_1S_TRACK_M"},
              "Jpsi_MC_mee_nobrem": {"plot_label": "$B \\rightarrow KJ/\\psi$",
-                                    "bin_width": 50,
-                                    "num_bins": 60,
+                                    "bin_width": 100,
+                                    "num_bins": 30,
                                     "x_min": 300.,
                                     "x_max": 3300.,
-                                    "x_label": "M(ee) w/o brem recovery, MeV",
-                                    "y_label": "Events/60 MeV",
-                                    "x_var": "J_psi_1S_TRACK_M"}
+                                    "x_label": "M(ee) track, MeV",
+                                    "y_label": "Events/100 MeV",
+                                    "x_var": "J_psi_1S_TRACK_M"},
+             'eta': {"plot_label": "$B \\rightarrow KJ/\\psi$",
+                     "bin_width": .2,
+                     "num_bins": 20,
+                     "x_min": 2.,
+                     "x_max": 6.,
+                     "x_label": "J/psi $eta$",
+                     "y_label": "Events/0.2 MeV",
+                     "x_var": "J_psi_1S_ETA"}
              }
