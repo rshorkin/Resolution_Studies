@@ -88,7 +88,7 @@ def create_initial_model(initial_parameters, obs, tags, switch="brem", params=No
         mu_l = zfit.Parameter("l_mu_CB" + name_tags(tags), 2292., 500., 3200.)
         sigma_l = zfit.Parameter('l_sigma_CB' + name_tags(tags), 280., 0., 700.)
         alpha_l = zfit.Parameter('l_alpha_CB' + name_tags(tags), 1.7, 0.0001, 10, )
-        n_l = zfit.Parameter('l_n_CB' + name_tags(tags), 73., 0.01, 100.)
+        n_l = zfit.Parameter('l_n_CB' + name_tags(tags), 73.)
 
         mu_g = zfit.Parameter("g_mu" + name_tags(tags), 2000., 1200., 3100.)
         sigma_g = zfit.Parameter('g_sigma' + name_tags(tags), 150., 0., 700.)
@@ -236,31 +236,32 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
     # main_axes.yaxis.set_minor_locator(locmin)
 
     main_axes.set_ylim(bottom=0)
-    main_axes.set_xticklabels([])
-    # pulls subplot
-    plt.axes([0.1, 0.1, 0.85, 0.2])
-    plt.yscale("linear")
-    pulls_axes = plt.gca()
-    xs = [h_xmin]
-    ys = [pulls[0]]
-    for i in range(h_num_bins - 1):
-        xs.append(h_xmin + h_bin_width * (1 + i))
-        xs.append(h_xmin + h_bin_width * (1 + i))
-        ys.append(pulls[i])
-        ys.append(pulls[i + 1])
-    xs.append(h_xmax)
-    ys.append(pulls[-1])
+    if pulls_switch:
+        main_axes.set_xticklabels([])
+        # pulls subplot
+        plt.axes([0.1, 0.1, 0.85, 0.2])
+        plt.yscale("linear")
+        pulls_axes = plt.gca()
+        xs = [h_xmin]
+        ys = [pulls[0]]
+        for i in range(h_num_bins - 1):
+            xs.append(h_xmin + h_bin_width * (1 + i))
+            xs.append(h_xmin + h_bin_width * (1 + i))
+            ys.append(pulls[i])
+            ys.append(pulls[i + 1])
+        xs.append(h_xmax)
+        ys.append(pulls[-1])
 
-    pulls_axes.plot(xs, ys, color='blue', label='Pulls')
+        pulls_axes.plot(xs, ys, color='blue', label='Pulls')
 
-    pulls_axes.set_ylim(-10., 10.)
-    pulls_axes.set_yticks([-5, 0, 5])
-    pulls_axes.xaxis.set_minor_locator(AutoMinorLocator())
-    y_ticks = pulls_axes.yaxis.get_major_ticks()
-    pulls_axes.set_xlabel(h_xlabel)
-    pulls_axes.set_ylabel('Pull')
-    pulls_axes.set_xlim(h_xmin, h_xmax)
-    plt.grid("True", axis="y", color="black", linestyle="--")
+        pulls_axes.set_ylim(-10., 10.)
+        pulls_axes.set_yticks([-5, 0, 5])
+        pulls_axes.xaxis.set_minor_locator(AutoMinorLocator())
+        y_ticks = pulls_axes.yaxis.get_major_ticks()
+        pulls_axes.set_xlabel(h_xlabel)
+        pulls_axes.set_ylabel('Pull')
+        pulls_axes.set_xlim(h_xmin, h_xmax)
+        plt.grid("True", axis="y", color="black", linestyle="--")
     plt.savefig(f"../Output/{plt_name}/{plt_name}_fit_plot_{b_tag}_{t_tag}_{r_tag}.jpg")
     plt.show()
     # plt.close()
@@ -382,6 +383,29 @@ def create_data_fit_model(data, parameters, obs, tags):
     parameters["nr"] = {'value': zfit.run(nr_scaled)}
     parameters['alphar'] = {'value': zfit.run(alphar_scaled)}
     return parameters, models
+
+
+def convoluted_data_model(mc_pdf, data, obs):
+    num_events = len(data.index)
+    data = format_data(data, obs)
+    # Create kernel for convolution
+    mu_g = zfit.Parameter("cg_mu", 0.)
+    sigma_g = zfit.Parameter('cg_sigma', 10.)
+    obs_kernel = zfit.Space('mee_nobrem', limits=(-20., 20.))
+    gauss_kernel = zfit.pdf.Gauss(mu=mu_g, sigma=sigma_g, obs=obs_kernel)
+    # Convolve pdf used to fit MC with gaussian kernel
+    conv_model = zconv.FFTConvPDFV1(mc_pdf, gauss_kernel, limits_func=(300, 3300))
+    # Try to fit data with it?
+    n_sig = zfit.Parameter("n_events",
+                           int(num_events * 0.99), int(num_events * 0.6), int(num_events * 1.2), step_size=1)
+    # conv_model.set_yield(n_sig)
+    # nll = zfit.loss.UnbinnedNLL(model=conv_model, data=data)
+    # minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
+    # result = minimizer.minimize(nll, params=[mu_g, sigma_g])
+    # print("Result Valid:", result.valid)
+    # print("Fit converged:", result.converged)
+    # print(result.params)
+    return conv_model
 
 
 def combine_models(models, data, obs, tags):

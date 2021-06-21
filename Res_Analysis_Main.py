@@ -180,7 +180,10 @@ def full_analysis_no_brem(_data):
                 data_df = data_sample.query(query_str)
                 tags["sample"] = "data"
                 tags["run_num"] = "run2_data"
-                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
+                conv_model = convoluted_data_model(ini_model, data_df[x_var], obs)
+                models["data fit"] = conv_model
+                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=False)
+                # plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
 
 
 def plot_hists(dict, plt_name, tags):
