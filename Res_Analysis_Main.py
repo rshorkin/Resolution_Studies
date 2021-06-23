@@ -9,12 +9,12 @@ from Hist_Settings import initial_params_dict
 
 from Service import *
 from Fitting import *
-from Smearing import smear
+from Smearing import smear, convolve_smear
 
 # get data, tag it with brem and trigger tags
 data = get_data_from_files()  # the result is {1: {"data": df1, "Jpsi_MC: df2, "rare_MC": df3}, 2: {...}}
 data = categorize_by_brem(data)  # creates an additional column with brem tags
-data = categorize_by_trig(data)  # creates an additional column with trig tags
+# data = categorize_by_trig(data)  # creates an additional column with trig tags
 zfit.run.set_graph_mode(False)
 
 
@@ -169,21 +169,26 @@ def full_analysis_no_brem(_data):
                 jpsi_df = jpsi_sample.query(query_str)
                 print("MC EVENTS:", len(jpsi_df.index))
                 tags["sample"] = "Jpsi_MC"
-                plot_histogram(jpsi_df, tags, tags["sample"] + "_" + option)  # test
+                # plot_histogram(jpsi_df, tags, tags["sample"] + "_" + option)  # test
 
-                ini_model = create_initial_model(initial_params, obs, tags, switch='nobrem')
-                models["original MC fit"] = ini_model
-                mc_fit_params = initial_fitter(jpsi_df[x_var], ini_model, obs)
-                plot_fit_result(models, jpsi_df[x_var], obs, tags, tags["sample"] + "_" + option,
-                                pulls_switch=True)  # test
+                # ini_model = create_initial_model(initial_params, obs, tags, switch='nobrem')
+                # models["original MC fit"] = ini_model
+                # mc_fit_params = initial_fitter(jpsi_df[x_var], ini_model, obs)
+                # plot_fit_result(models, jpsi_df[x_var], obs, tags, tags["sample"] + "_" + option,
+                                # pulls_switch=True)  # test
 
                 data_df = data_sample.query(query_str)
                 tags["sample"] = "data"
-                tags["run_num"] = "run2_data"
-                conv_model = convoluted_data_model(ini_model, data_df[x_var], obs)
-                models["data fit"] = conv_model
-                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=False)
-                # plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
+                # tags["run_num"] = "run2_data"
+                # conv_model, parameters = convoluted_data_model(ini_model, data_df[x_var], obs)
+                # models["data fit"] = conv_model
+                # plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=False)
+                tags['run_num'] = 'run2'
+
+                jpsi_smeared = convolve_smear(jpsi_df, x_var, parameters={'mu': -19.5, 'sigma': 27.})
+                print(jpsi_smeared)
+                hists = {"data hist": data_df[x_var], "smeared mc hist": jpsi_smeared}
+                plot_hists(hists, tags["sample"] + "_" + option, tags)
 
 
 def plot_hists(dict, plt_name, tags):
@@ -197,7 +202,7 @@ def plot_hists(dict, plt_name, tags):
         plt.hist(value, bins=h_num_bins, alpha=0.5, range=(h_xmin, h_xmax), density=True, label=key)
 
     plt.legend(loc='upper left')
-    plt.title("data vs mc hist")
+    plt.title("data vs smeared mc hist")
     plt.savefig(f"../Output/no_brem_data_vs_mc_{tags['brem_cat']}_{tags['trig_cat']}.pdf")
     plt.close()
 
@@ -205,3 +210,5 @@ def plot_hists(dict, plt_name, tags):
 # full_analysis_w_brem(data)
 
 full_analysis_no_brem(data)
+
+

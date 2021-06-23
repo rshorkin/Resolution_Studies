@@ -187,7 +187,11 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
     plt.axes([0.1, 0.30, 0.85, 0.65])
     main_axes = plt.gca()
     main_axes.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
-    main_axes.set_title('M(ee) without brem recovery, J/$\psi$ MC, brem one', fontsize=18)
+    if 'one' in b_tag:
+        title_brem = 'brem one'
+    elif 'two' in b_tag:
+        title_brem = 'brem two'
+    main_axes.set_title(f'M(ee) without brem recovery, data, {title_brem}', fontsize=18)
 
     if data is not None:
         data_x, _ = np.histogram(data.values, bins=bins)
@@ -391,21 +395,21 @@ def convoluted_data_model(mc_pdf, data, obs):
     # Create kernel for convolution
     mu_g = zfit.Parameter("cg_mu", 0.)
     sigma_g = zfit.Parameter('cg_sigma', 10.)
-    obs_kernel = zfit.Space('mee_nobrem', limits=(-20., 20.))
+    obs_kernel = zfit.Space('mee_nobrem', limits=(-100., 100.))
     gauss_kernel = zfit.pdf.Gauss(mu=mu_g, sigma=sigma_g, obs=obs_kernel)
     # Convolve pdf used to fit MC with gaussian kernel
     conv_model = zconv.FFTConvPDFV1(mc_pdf, gauss_kernel, limits_func=(300, 3300))
     # Try to fit data with it?
     n_sig = zfit.Parameter("n_events",
                            int(num_events * 0.99), int(num_events * 0.6), int(num_events * 1.2), step_size=1)
-    # conv_model.set_yield(n_sig)
-    # nll = zfit.loss.UnbinnedNLL(model=conv_model, data=data)
-    # minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
-    # result = minimizer.minimize(nll, params=[mu_g, sigma_g])
-    # print("Result Valid:", result.valid)
-    # print("Fit converged:", result.converged)
-    # print(result.params)
-    return conv_model
+    nll = zfit.loss.UnbinnedNLL(model=conv_model, data=data)
+    minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
+    result = minimizer.minimize(nll, params=[mu_g, sigma_g])
+    print("Result Valid:", result.valid)
+    print("Fit converged:", result.converged)
+    print(result.params)
+    parameters = {'mu': zfit.run(mu_g), 'sigma': zfit.run(sigma_g)}
+    return conv_model, parameters
 
 
 def combine_models(models, data, obs, tags):
