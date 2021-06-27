@@ -2,7 +2,8 @@ import tensorflow as tf
 import zfit
 import matplotlib.pyplot as plt
 import numpy as np
-import zfit.z as z
+from zfit import z
+import zfit.z.numpy as znp
 from matplotlib.ticker import AutoMinorLocator, LogLocator, LogFormatterSciNotation
 import csv
 from scipy.stats import chisquare
@@ -34,9 +35,9 @@ class LogNormal(zfit.pdf.BasePDF):
         sigma = self.params['sigma']
         theta = self.params['theta']
 
-        cond = tf.less(data, -theta)
-        exp_power = -(np.power(np.log(-data - theta) - mu, 2) / (2 * np.power(sigma, 2)))
-        outer_factor = (-data - theta) * sigma * np.sqrt(2 * math.pi)
+        cond = tf.less_equal(data, -theta)
+        exp_power = -(znp.power(znp.log(-data - theta) - mu, 2) / (2 * znp.power(sigma, 2)))
+        outer_factor = (-data - theta) * sigma * znp.sqrt(2 * math.pi)
         func = tf.where(cond,
                         np.exp(exp_power) / outer_factor,
                         0.)
@@ -93,7 +94,7 @@ def create_initial_model(initial_parameters, obs, tags, switch="brem", params=No
         mu_g = zfit.Parameter("g_mu" + name_tags(tags), 2000., 1200., 3100.)
         sigma_g = zfit.Parameter('g_sigma' + name_tags(tags), 150., 0., 700.)
 
-        mu_r = zfit.Parameter("r_mu_DCB" + name_tags(tags), 1604., 1500., 3100.)
+        mu_r = zfit.Parameter("r_mu_DCB" + name_tags(tags), 1504., 1200., 3100.)
         sigma_r = zfit.Parameter('r_sigma_DCB' + name_tags(tags), 367., 2., 600.)
         ar_r = zfit.Parameter('alphar_DCB' + name_tags(tags), 3., 0.01, 10.)
         nr_r = zfit.Parameter('nr_DCB' + name_tags(tags), 18., 0.01, 35.)
@@ -187,11 +188,7 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
     plt.axes([0.1, 0.30, 0.85, 0.65])
     main_axes = plt.gca()
     main_axes.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
-    if 'one' in b_tag:
-        title_brem = 'brem one'
-    elif 'two' in b_tag:
-        title_brem = 'brem two'
-    main_axes.set_title(f'M(ee) without brem recovery, data, {title_brem}', fontsize=18)
+    main_axes.set_title('M(ee) without brem recovery, J/$\psi$ MC, brem one', fontsize=18)
 
     if data is not None:
         data_x, _ = np.histogram(data.values, bins=bins)
@@ -267,8 +264,8 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
         pulls_axes.set_xlim(h_xmin, h_xmax)
         plt.grid("True", axis="y", color="black", linestyle="--")
     plt.savefig(f"../Output/{plt_name}/{plt_name}_fit_plot_{b_tag}_{t_tag}_{r_tag}.jpg")
-    plt.show()
-    # plt.close()
+    # plt.show()
+    plt.close()
 
 
 # Fit data with shape from MC. Allow mean shift and width scale factor to float.
@@ -393,21 +390,23 @@ def convoluted_data_model(mc_pdf, data, obs):
     num_events = len(data.index)
     data = format_data(data, obs)
     # Create kernel for convolution
-    mu_g = zfit.Parameter("cg_mu", 0.)
-    sigma_g = zfit.Parameter('cg_sigma', 10.)
-    obs_kernel = zfit.Space('mee_nobrem', limits=(-100., 100.))
+    mu_g = zfit.Parameter("cg_mu", -47.)
+    sigma_g = zfit.Parameter('cg_sigma', 61.)
+    obs_kernel = zfit.Space('mee_nobrem', limits=(-150., 150.))
     gauss_kernel = zfit.pdf.Gauss(mu=mu_g, sigma=sigma_g, obs=obs_kernel)
     # Convolve pdf used to fit MC with gaussian kernel
     conv_model = zconv.FFTConvPDFV1(mc_pdf, gauss_kernel, limits_func=(300, 3300))
     # Try to fit data with it?
     n_sig = zfit.Parameter("n_events",
                            int(num_events * 0.99), int(num_events * 0.6), int(num_events * 1.2), step_size=1)
+
     nll = zfit.loss.UnbinnedNLL(model=conv_model, data=data)
     minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
     result = minimizer.minimize(nll, params=[mu_g, sigma_g])
     print("Result Valid:", result.valid)
     print("Fit converged:", result.converged)
     print(result.params)
+
     parameters = {'mu': zfit.run(mu_g), 'sigma': zfit.run(sigma_g)}
     return conv_model, parameters
 

@@ -1,8 +1,6 @@
 import numpy as np
 import pandas
 import math
-from scipy import stats, signal
-import matplotlib.pyplot as plt
 from pandas import Series, DataFrame
 
 
@@ -27,42 +25,13 @@ def smear(data, parameters, x_var):
     return data
 
 
-def convolve_smear(data, x_var, parameters=None):
+def convolved_smearing(data, x_var, parameters=None):
     if parameters is None:
-        parameters = {'mu': 0., 'sigma': 1.}
+        parameters = {'mu': 0., 'sigma': 5.}
     mu = parameters['mu']
     sigma = parameters['sigma']
 
     m_df = data[x_var].to_numpy()
-    num_points = len(m_df)
+    data[x_var + '_smeared'] = m_df + np.random.normal(loc=mu, scale=sigma)
 
-    gaussian = np.random.normal(loc=mu, scale=sigma, size=num_points)
-    bins = np.linspace(300, 3300, num=num_points)
-    print(gaussian)
-
-    gauss_h, _ = np.histogram(gaussian, bins=num_points)
-    mc_hist, _ = np.histogram(m_df, bins=num_points)
-
-    smeared_result = signal.fftconvolve(mc_hist, gauss_h, 'same')
-    smeared_result_n = smeared_result*num_points
-
-    # data_smeared = np.convolve(gaussian, m_df, 'same')
-    # data_smeared = scipy.signal.convolve(m_df, gaussian)
-    # print(len(smeared_result))
-    # plt.hist(smeared_result, bins=50, label='convoluted stuff')
-    # plt.hist(gaussian_normed, bins=50, label='mc')
-    plt.show()
-    plt.clf()
-    smth = plt.plot(bins, smeared_result)
-    plt.show()
-    plt.clf()
-    plt.hist(m_df, bins=50, label='convoluted stuff')
-    plt.show()
-    plt.clf()
-    plt.hist(gaussian, bins=50, label='convoluted stuff')
-    plt.show()
-    # plt.hist(smeared_result_n, label='convoluted stuff')
-    # plt.hist(gaussian_normed, bins=50, label='mc')
-    # return smeared_result
-
-
+    return data
