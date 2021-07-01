@@ -88,7 +88,7 @@ def full_analysis_w_brem(_data):
                 data_fit_params, fin_models = create_data_fit_model(data_df[x_var], mc_fit_params, obs, tags)
                 tags["run_num"] = "run2_data"
                 models["data fit"] = fin_models["combined"]
-                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option)  # test
+                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
                 # plot_fit_result(fin_models, data_df[x_var], obs, tags, tags["sample"] + "_" + option)  # test
                 tags["run_num"] = "run2"
 
@@ -115,7 +115,7 @@ def full_analysis_w_brem(_data):
                 models["smeared MC fit"] = sm_model
                 _ = initial_fitter(jpsi_df[x_var + "_smeared"], sm_model, obs)
 
-                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, data_fit_params)
+                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
 
                 if data_select == 1:
                     models_by_brem["data"][brem_tag] = fin_models["combined"]
@@ -124,7 +124,8 @@ def full_analysis_w_brem(_data):
                     smeared_MC_by_brem.append(jpsi_df)
 
                 hists = {"data hist": data_df[x_var], "smeared mc hist": jpsi_df[x_var + "_smeared"]}
-                plot_hists(hists, tags["sample"] + "_" + option, tags)
+                plt_name = 'data vs smeared MC'
+                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
 
         if data_select == 1:
             full_models = {}
@@ -142,7 +143,7 @@ def full_analysis_w_brem(_data):
             sMC_model = combine_models(models_by_brem["smeared_MC"], sMC_sample[x_var + "_smeared"], obs, tags)
             full_models["smeared MC fit"] = sMC_model
 
-            plot_fit_result(full_models, None, obs, tags, "data" + "_" + option)
+            plot_fit_result(full_models, None, obs, tags, "data" + "_" + option, pulls_switch=False)
 
 
 def full_analysis_no_brem(_data):
@@ -150,10 +151,20 @@ def full_analysis_no_brem(_data):
     models = {}
     option = "mee_nobrem"
     x_var = "J_psi_1S_TRACK_M"
-    trigger_tags = ["TIS_&_eTOS"]
-    brem_tags = ['brem_one']
-    query_str = "brem_cat == @brem_tag"
     mass = 3096.9
+
+    # data_select = int(input("Choose the type of analysis\n0 for all trigger and brem categories\n"
+    #                         "1 for all brem categories (trigger independent)\n"
+    #                         "2 for all trigger categories (brem independent) (NOT RECOMMENDED)\n"))
+    data_select = 0
+    if data_select == 0:
+        trigger_tags = ["eTOS", 'TIS']
+        brem_tags = ['brem_two']
+        query_str = "brem_cat == @brem_tag and trig_cat == @trig_tag"
+    elif data_select == 1:
+        trigger_tags = ["TIS_&_eTOS"]
+        brem_tags = ["brem_two"]
+        query_str = "brem_cat == @brem_tag"
     for run_tag, data_run in _data.items():
 
         jpsi_sample = data_run["Jpsi_MC"]
@@ -165,13 +176,15 @@ def full_analysis_no_brem(_data):
             initial_params = initial_params_dict[option][brem_tag]
             for trig_tag in trigger_tags:
                 tags = {"run_num": str(run_tag), "brem_cat": brem_tag, "trig_cat": trig_tag}
+                models = {}
 
                 jpsi_df = jpsi_sample.query(query_str)
                 print("MC EVENTS:", len(jpsi_df.index))
                 tags["sample"] = "Jpsi_MC"
-                plot_histogram(jpsi_df, tags, tags["sample"] + "_" + option)  # test
-
-                ini_model = create_initial_model(initial_params, obs, tags, switch='nobrem')
+                if brem_tag != "brem_zero":
+                    ini_model = create_initial_model(initial_params, obs, tags, switch='nobrem')
+                else:
+                    ini_model = create_initial_model(initial_params, obs, tags)
                 models["original MC fit"] = ini_model
                 mc_fit_params = initial_fitter(jpsi_df[x_var], ini_model, obs)
                 plot_fit_result(models, jpsi_df[x_var], obs, tags, tags["sample"] + "_" + option,
@@ -179,14 +192,11 @@ def full_analysis_no_brem(_data):
 
                 data_df = data_sample.query(query_str)
                 tags["sample"] = "data"
-                tags["run_num"] = "run2_data"
-                conv_model, parameters = convoluted_data_model(ini_model, data_df[x_var], obs)
+                conv_model, parameters = convoluted_data_model(ini_model, data_df[x_var], tags, obs)
                 models["data fit"] = conv_model
-                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=False)
-                # plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
+                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
 
                 tags["sample"] = "Jpsi_MC"
-                tags["run_num"] = "run2"
                 jpsi_df = Smearing.convolved_smearing(jpsi_df, x_var, parameters=parameters)
 
                 plt_name = 'data vs smeared MC'
@@ -200,6 +210,17 @@ def full_analysis_no_brem(_data):
                 plt_name = 'MC vs smeared MC'
                 hists = {"mc hist": jpsi_df[x_var], "smeared mc hist": jpsi_df[x_var + "_smeared"]}
                 plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+
+                print("####==========####\nFitting smeared MC")
+                tags["run_num"] = str(run_tag) + "_smeared"
+                if brem_tag != "brem_zero":
+                    sm_model = create_initial_model(initial_params, obs, tags, switch='nobrem')
+                else:
+                    sm_model = create_initial_model(initial_params, obs, tags)
+                models["smeared MC fit"] = sm_model
+                _ = initial_fitter(jpsi_df[x_var + "_smeared"], sm_model, obs)
+
+                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
 
 
 def plot_hists(dict, plt_name, tags, plt_title):
@@ -218,6 +239,6 @@ def plot_hists(dict, plt_name, tags, plt_title):
     plt.close()
 
 
-# full_analysis_w_brem(data)
+full_analysis_w_brem(data)
 
-full_analysis_no_brem(data)
+# full_analysis_no_brem(data)

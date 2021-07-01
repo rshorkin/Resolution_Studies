@@ -91,24 +91,17 @@ def create_initial_model(initial_parameters, obs, tags, switch="brem", params=No
         alpha_l = zfit.Parameter('l_alpha_CB' + name_tags(tags), 1.7, 0.0001, 10, )
         n_l = zfit.Parameter('l_n_CB' + name_tags(tags), 73.)
 
-        mu_g = zfit.Parameter("g_mu" + name_tags(tags), 2000., 1200., 3100.)
-        sigma_g = zfit.Parameter('g_sigma' + name_tags(tags), 150., 0., 700.)
-
-        mu_r = zfit.Parameter("r_mu_DCB" + name_tags(tags), 1504., 1200., 3100.)
+        mu_r = zfit.Parameter("r_mu_DCB" + name_tags(tags), 1504., 900., 3100.)
         sigma_r = zfit.Parameter('r_sigma_DCB' + name_tags(tags), 367., 2., 600.)
         ar_r = zfit.Parameter('alphar_DCB' + name_tags(tags), 3., 0.01, 10.)
         nr_r = zfit.Parameter('nr_DCB' + name_tags(tags), 18., 0.01, 35.)
-        al_r = zfit.Parameter('alphal_DCB' + name_tags(tags), 0.05, 0.01, 10.)
-        nl_r = zfit.Parameter('nl_DCB' + name_tags(tags), 10., 0.01, 35.)
 
         Left_CB = zfit.pdf.CrystalBall(obs=obs, mu=mu_l, sigma=sigma_l, alpha=alpha_l, n=n_l)
-        Gauss = zfit.pdf.Gauss(obs=obs, mu=mu_g, sigma=sigma_g)
-        DCB = zfit.pdf.DoubleCB(obs=obs, mu=mu_r, sigma=sigma_r, alphal=al_r, nl=nl_r, alphar=ar_r, nr=nr_r)
         Right_CB = zfit.pdf.CrystalBall(obs=obs, mu=mu_r, sigma=sigma_r, alpha=ar_r, n=nr_r)
 
-        mu = zfit.Parameter('mu', 6.)
-        theta = zfit.Parameter('theta', -3160.)
-        sigma = zfit.Parameter('sigma', .6)
+        mu = zfit.Parameter('logn_mu' + name_tags(tags), 6.)
+        theta = zfit.Parameter('logn_theta' + name_tags(tags), -3160.)
+        sigma = zfit.Parameter('logn_sigma' + name_tags(tags), .6)
         Log_n = LogNormal(obs=obs, mu=mu, sigma=sigma, theta=theta)
 
         frac1 = zfit.Parameter('frac1' + name_tags(tags), 0.75, 0.01, .99)
@@ -178,6 +171,16 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
     h_xmax = hist_dict[plt_name]["x_max"]
     h_xlabel = hist_dict[plt_name]["x_label"]
     h_ylabel = hist_dict[plt_name]["y_label"]
+    if 'mee' in plt_name and 'nobrem' not in plt_name:
+        title = f'J/$\psi$ mass fit {b_tag}'
+    elif 'mKee' in plt_name and 'nobrem' not in plt_name:
+        title = f'$B^+$ mass fit {b_tag}'
+    elif 'mee' in plt_name and 'nobrem' in plt_name:
+        title = f'J/$\psi$ track mass fit {b_tag}'
+    elif 'mee' in plt_name and 'nobrem' in plt_name:
+        title = f'$B^+$ track mass fit {b_tag}'
+    else:
+        title = f'{plt_name}, {b_tag}'
 
     bins = [h_xmin + x * h_bin_width for x in range(h_num_bins + 1)]
     bin_centers = [h_xmin + h_bin_width / 2 + x * h_bin_width for x in range(h_num_bins)]
@@ -188,7 +191,7 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
     plt.axes([0.1, 0.30, 0.85, 0.65])
     main_axes = plt.gca()
     main_axes.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
-    main_axes.set_title('M(ee) without brem recovery, J/$\psi$ MC, brem one', fontsize=18)
+    main_axes.set_title(title, fontsize=18)
 
     if data is not None:
         data_x, _ = np.histogram(data.values, bins=bins)
@@ -203,29 +206,43 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
     x_plot = np.linspace(lower[-1][0], upper[0][0], num=1000)
     data_bins = np.linspace(lower[-1][0], upper[0][0], num=h_num_bins + 1)
     colors = ["b", "k", "r"]
-    i = 0
+    j = 0
+
     for model_name, model in models.items():
         if model.is_extended:
+            if data is None:
+                sp_scale = model.get_yield()
+            else:
+                sp_scale = 1.
             main_axes.plot(x_plot,
-                           model.ext_pdf(x_plot) * obs.area() / (h_num_bins * model.get_yield()),
-                           colors[i],
+                           model.ext_pdf(x_plot) * obs.area() / (h_num_bins * sp_scale),
+                           colors[j],
                            label=model_name)
-            if pulls_switch:
-                pulls = np.divide(
-                    np.subtract(data_x,
-                                model.ext_pdf(bin_centers) * obs.area() / (h_num_bins * model.get_yield())),
-                    data_errors)
+            if pulls_switch and (len(models) == 1 or ('data' in model_name and len(models) == 2)
+                                 or ('smeared' in model_name)):
+                cond = np.not_equal(data_errors, 0.)
+                pulls = np.where(cond,
+                                 np.divide(
+                                     np.subtract(data_x,
+                                                 model.ext_pdf(bin_centers) * obs.area() / h_num_bins),
+                                     data_errors),
+                                 0.)
         else:
             main_axes.plot(x_plot,
                            model.pdf(x_plot) * plot_scale,
-                           colors[i],
+                           colors[j],
                            label=model_name)
-            if pulls_switch:
-                pulls = np.divide(
-                    np.subtract(data_x,
-                                model.pdf(bin_centers) * plot_scale),
-                    data_errors)
-        i = i + 1
+            if pulls_switch and (len(models) == 1 or ('data' in model_name and len(models) == 2)
+                                 or ('smeared' in model_name)):
+                cond = np.not_equal(data_errors, 0.)
+                pulls = np.where(cond,
+                                 np.divide(
+                                     np.subtract(data_x,
+                                                 model.pdf(bin_centers) * plot_scale),
+                                     data_errors),
+                                 0.)
+        j = j + 1
+
     main_axes.legend(title=plot_label, loc="upper left")
     main_axes.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
 
@@ -237,6 +254,8 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
     # main_axes.yaxis.set_minor_locator(locmin)
 
     main_axes.set_ylim(bottom=0)
+    if not pulls_switch:
+        main_axes.set_xlabel(h_xlabel)
     if pulls_switch:
         main_axes.set_xticklabels([])
         # pulls subplot
@@ -250,10 +269,11 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
             xs.append(h_xmin + h_bin_width * (1 + i))
             ys.append(pulls[i])
             ys.append(pulls[i + 1])
+        del i
         xs.append(h_xmax)
         ys.append(pulls[-1])
 
-        pulls_axes.plot(xs, ys, color='blue', label='Pulls')
+        pulls_axes.plot(xs, ys, color=colors[j - 1], label='Pulls')
 
         pulls_axes.set_ylim(-10., 10.)
         pulls_axes.set_yticks([-5, 0, 5])
@@ -386,20 +406,19 @@ def create_data_fit_model(data, parameters, obs, tags):
     return parameters, models
 
 
-def convoluted_data_model(mc_pdf, data, obs):
+def convoluted_data_model(mc_pdf, data, tags, obs):
     num_events = len(data.index)
     data = format_data(data, obs)
+    lower = -150.
+    upper = 150.
     # Create kernel for convolution
-    mu_g = zfit.Parameter("cg_mu", -47.)
-    sigma_g = zfit.Parameter('cg_sigma', 61.)
-    obs_kernel = zfit.Space('mee_nobrem', limits=(-150., 150.))
+    mu_g = zfit.Parameter(f"conv_ker_mu{name_tags(tags)}", -47.)
+    sigma_g = zfit.Parameter(f'conv_ker_sigma{name_tags(tags)}', 61.)
+    obs_kernel = zfit.Space('mee_nobrem', limits=(lower, upper))
     gauss_kernel = zfit.pdf.Gauss(mu=mu_g, sigma=sigma_g, obs=obs_kernel)
     # Convolve pdf used to fit MC with gaussian kernel
     conv_model = zconv.FFTConvPDFV1(mc_pdf, gauss_kernel, limits_func=(300, 3300))
     # Try to fit data with it?
-    n_sig = zfit.Parameter("n_events",
-                           int(num_events * 0.99), int(num_events * 0.6), int(num_events * 1.2), step_size=1)
-
     nll = zfit.loss.UnbinnedNLL(model=conv_model, data=data)
     minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
     result = minimizer.minimize(nll, params=[mu_g, sigma_g])
@@ -407,7 +426,7 @@ def convoluted_data_model(mc_pdf, data, obs):
     print("Fit converged:", result.converged)
     print(result.params)
 
-    parameters = {'mu': zfit.run(mu_g), 'sigma': zfit.run(sigma_g)}
+    parameters = {'mu': zfit.run(mu_g), 'sigma': zfit.run(sigma_g), 'lower': lower, 'upper': upper}
     return conv_model, parameters
 
 

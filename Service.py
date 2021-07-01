@@ -25,7 +25,7 @@ samples = {"data": "B2Kee_",
 
 samples_keys = ["data", "rare_MC", "Jpsi_MC"]
 
-common_path = "/media/sf_Shared/resolution_data/"  # !!! change this to your data directory path !!!
+common_path = "/media/roman/Backup Plus/resolution_data/"  # !!! change this to your data directory path !!!
 
 
 def extract_from_vector(x):

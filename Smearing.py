@@ -1,6 +1,7 @@
 import numpy as np
 import pandas
 import math
+import scipy.stats as stats
 from pandas import Series, DataFrame
 
 
@@ -27,11 +28,14 @@ def smear(data, parameters, x_var):
 
 def convolved_smearing(data, x_var, parameters=None):
     if parameters is None:
-        parameters = {'mu': 0., 'sigma': 5.}
+        parameters = {'mu': 0., 'sigma': 5., 'lower': -100., 'upper': 100.}
     mu = parameters['mu']
     sigma = parameters['sigma']
+    lower = parameters['lower']
+    upper = parameters['upper']
 
     m_df = data[x_var].to_numpy()
-    data[x_var + '_smeared'] = m_df + np.random.normal(loc=mu, scale=sigma)
+    truncated_gauss = stats.truncnorm((lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma)
+    data[x_var + '_smeared'] = m_df + truncated_gauss.rvs(1)[0]
 
     return data
