@@ -78,6 +78,29 @@ def read_file(path, sample, branches):
     return df
 
 
+def read_rare_MC(path, sample, branches):
+    print("=====")
+    print("Processing {0} file".format(sample))
+    with uproot.open(path) as file:
+        tree = file["DecayTree"]
+        df = tree.arrays(branches, library='pd')
+
+    num_before_cuts = len(df.index)
+    print("Events before cuts: {0}".format(num_before_cuts))
+
+    df["B_plus_DTFM_M"] = df["B_plus_DTFM_M"].apply(extract_from_vector)
+    df["q2"] = df["J_psi_1S_M"].apply(calc_q2)
+    df["q2"] = df["q2"].apply(to_GeVsq)
+    df["q2_nobrem"] = (df['J_psi_1S_TRACK_M'] / 1000) ** 2
+
+    df = df.query("B_plus_M > 4880 and B_plus_M < 6200")  # same, Section 6.9 (stricter cut)
+    df = df.query("BDT_score_selection >= 0.8")  # 85% of signal
+
+    num_after_cuts = len(df.index)
+    print("Number of events after cuts: {0}".format(num_after_cuts))
+    return df
+
+
 def create_new_vars(df, sample):
     print("=====")
     print("Creating new variables")
@@ -85,13 +108,13 @@ def create_new_vars(df, sample):
     # add brem/no_brem variables here if needed
 
     if "MC" in sample:
-        df["TRUE_q2"] = df["J_psi_1S_M_TRUE"].apply(calc_q2)
-        df["TRUE_q2"] = df["TRUE_q2"].apply(to_GeVsq)
+        df["q2_TRUE"] = df["J_psi_1S_M_TRUE"].apply(calc_q2)
+        df["q2_TRUE"] = df["q2_TRUE"].apply(to_GeVsq)
 
     elif "data" in sample:
         df["J_psi_1S_M_TRUE"] = 3096.9  # pdg
         df["B_plus_M_TRUE"] = 5279.26  # pdg
-        df["TRUE_q2"] = (3096.9 / 1000) ** 2
+        df["q2_TRUE"] = (3096.9 / 1000) ** 2
 
     df["q2_nobrem"] = (df['J_psi_1S_TRACK_M'] / 1000) ** 2
 
@@ -146,7 +169,10 @@ def read_sample(sample, year):  # right now reads 1 sample from 2 ntuples (idk h
         elif "MC" in sample:
             branches = mc_branches
 
-        temp_df = read_file(path, sample, branches)
+        if 'rare' not in sample:
+            temp_df = read_file(path, sample, branches)
+        else:
+            temp_df = read_rare_MC(path, sample, branches)
         temp_df = create_new_vars(temp_df, sample)
         frames.append(temp_df)
 

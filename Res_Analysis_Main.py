@@ -1,3 +1,5 @@
+import os
+
 import tensorflow as tf
 import zfit
 import matplotlib.pyplot as plt
@@ -24,21 +26,15 @@ def full_analysis_w_brem(_data):
                 "mKee": zfit.Space('B_plus_M', limits=(4600, 5800))}
 
     data_select = int(input("Choose the type of analysis\n0 for all trigger and brem categories\n"
-                            "1 for all brem categories (trigger independent)\n"
-                            "2 for all trigger categories (brem independent) (NOT RECOMMENDED)\n"))  # not implemented
-
+                            "1 for all brem categories (trigger independent)\n"))
     if data_select == 0:
-        trigger_tags = ["TIS", "eTOS"]
+        trigger_tags = ["TIS", 'eTOS']
         brem_tags = ["brem_zero", "brem_one", "brem_two"]
         query_str = "brem_cat == @brem_tag and trig_cat == @trig_tag"
     elif data_select == 1:
-        trigger_tags = ["TIS_&_eTOS"]
+        trigger_tags = ["TIS_or_eTOS"]
         brem_tags = ["brem_zero", "brem_one", "brem_two"]
         query_str = "brem_cat == @brem_tag"
-    elif data_select == 2:
-        trigger_tags = ["TIS", "eTOS"]
-        brem_tags = ["brem_independent"]
-        query_str = "trig_cat == @trig_tag"
     else:
         raise ValueError("Error! This choice is currently not supported. Please select a number from 0 to 2")
 
@@ -85,46 +81,42 @@ def full_analysis_w_brem(_data):
                 # plot_histogram(data_df, tags, tags["sample"] + "_" + option)   # test
 
                 print("####==========####\nFitting data")
-                data_fit_params, fin_models = create_data_fit_model(data_df[x_var], mc_fit_params, obs, tags)
-                tags["run_num"] = "run2_data"
-                models["data fit"] = fin_models["combined"]
-                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
-                # plot_fit_result(fin_models, data_df[x_var], obs, tags, tags["sample"] + "_" + option)  # test
                 tags["run_num"] = "run2"
+                conv_model, parameters, kernel = convoluted_data_model(ini_model, data_df[x_var], tags, obs,
+                                                                       nobrem=False)
+                models["data fit"] = conv_model
+                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
 
                 print("####==========####\nSmearing MC")
-                smearing_params = {"mass": mass}
-                for param_name, param_value in mc_fit_params.items():
-                    if "mu" in param_name:
-                        smearing_params["mu"] = param_value
-                for param_name, param_value in data_fit_params.items():
-                    if "delta_mu" in param_name:
-                        smearing_params["delta_mu"] = param_value["value"]
-                    if "scale_sigma" in param_name:
-                        smearing_params["scale_sigma"] = param_value["value"]
-
-                jpsi_df = Smearing.smear(jpsi_df, smearing_params, x_var)
+                tags["sample"] = "Jpsi_MC"
+                jpsi_df = Smearing.convolved_smearing(jpsi_df, x_var, kernel=kernel)
+                save_gauss_params(parameters, option, tags)
 
                 print("####==========####\nFitting smeared MC")
                 tags["run_num"] = str(run_tag) + "_smeared"
-                if brem_tag != "brem_zero":
-                    sm_model = create_initial_model(initial_params, obs, tags, switch="smearedMC",
-                                                    params=data_fit_params)
-                else:
-                    sm_model = create_initial_model(initial_params, obs, tags)
+                sm_model = create_initial_model(initial_params, obs, tags)
                 models["smeared MC fit"] = sm_model
                 _ = initial_fitter(jpsi_df[x_var + "_smeared"], sm_model, obs)
 
-                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
+                plot_fit_result(models, jpsi_df[x_var + "_smeared"], obs, tags, tags["sample"] + "_" + option,
+                                pulls_switch=True)
 
                 if data_select == 1:
-                    models_by_brem["data"][brem_tag] = fin_models["combined"]
-                    models_by_brem["Jpsi_MC"][brem_tag] = models["original MC fit"]
+                    models_by_brem["data"][brem_tag] = models["data fit"]
+                    models_by_brem["Jpsi_MC"][brem_tag] = ini_model
                     models_by_brem["smeared_MC"][brem_tag] = models["smeared MC fit"]
                     smeared_MC_by_brem.append(jpsi_df)
 
                 hists = {"data hist": data_df[x_var], "smeared mc hist": jpsi_df[x_var + "_smeared"]}
                 plt_name = 'data vs smeared MC'
+                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+
+                plt_name = 'data vs MC'
+                hists = {"data hist": data_df[x_var], "mc hist": jpsi_df[x_var]}
+                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+
+                plt_name = 'MC vs smeared MC'
+                hists = {"mc hist": jpsi_df[x_var], "smeared mc hist": jpsi_df[x_var + "_smeared"]}
                 plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
 
         if data_select == 1:
@@ -153,22 +145,21 @@ def full_analysis_no_brem(_data):
     x_var = "J_psi_1S_TRACK_M"
     mass = 3096.9
 
-    # data_select = int(input("Choose the type of analysis\n0 for all trigger and brem categories\n"
-    #                         "1 for all brem categories (trigger independent)\n"
-    #                         "2 for all trigger categories (brem independent) (NOT RECOMMENDED)\n"))
-    data_select = 0
+    data_select = int(input("Choose the type of analysis\n0 for all trigger and brem categories\n"
+                            "1 for all brem categories (trigger independent)\n"))
     if data_select == 0:
-        trigger_tags = ["eTOS", 'TIS']
-        brem_tags = ['brem_two']
+        trigger_tags = ['TIS', 'eTOS']
+        brem_tags = ['brem_zero', 'brem_one', 'brem_two']
         query_str = "brem_cat == @brem_tag and trig_cat == @trig_tag"
     elif data_select == 1:
-        trigger_tags = ["TIS_&_eTOS"]
-        brem_tags = ["brem_two"]
+        trigger_tags = ["TIS_or_eTOS"]
+        brem_tags = ['brem_one', "brem_two"]
         query_str = "brem_cat == @brem_tag"
     for run_tag, data_run in _data.items():
 
         jpsi_sample = data_run["Jpsi_MC"]
         data_sample = data_run["data"]
+        rare_sample = data_run["rare_MC"]
 
         models_by_brem = {"data": {}, "Jpsi_MC": {}, "smeared_MC": {}}
         smeared_MC_by_brem = []
@@ -177,7 +168,6 @@ def full_analysis_no_brem(_data):
             for trig_tag in trigger_tags:
                 tags = {"run_num": str(run_tag), "brem_cat": brem_tag, "trig_cat": trig_tag}
                 models = {}
-
                 jpsi_df = jpsi_sample.query(query_str)
                 print("MC EVENTS:", len(jpsi_df.index))
                 tags["sample"] = "Jpsi_MC"
@@ -190,14 +180,18 @@ def full_analysis_no_brem(_data):
                 plot_fit_result(models, jpsi_df[x_var], obs, tags, tags["sample"] + "_" + option,
                                 pulls_switch=True)  # test
 
+                print('"####==========####\nFitting data"')
                 data_df = data_sample.query(query_str)
                 tags["sample"] = "data"
-                conv_model, parameters = convoluted_data_model(ini_model, data_df[x_var], tags, obs)
+                conv_model, parameters, kernel = convoluted_data_model(ini_model, data_df[x_var], tags, obs,
+                                                                       nobrem=True)
                 models["data fit"] = conv_model
                 plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
 
+                print('"####==========####\nSmearing J/Psi MC"')
                 tags["sample"] = "Jpsi_MC"
-                jpsi_df = Smearing.convolved_smearing(jpsi_df, x_var, parameters=parameters)
+                jpsi_df = Smearing.convolved_smearing(jpsi_df, x_var, kernel=kernel)
+                save_gauss_params(parameters, option, tags)
 
                 plt_name = 'data vs smeared MC'
                 hists = {"data hist": data_df[x_var], "smeared mc hist": jpsi_df[x_var + "_smeared"]}
@@ -220,10 +214,14 @@ def full_analysis_no_brem(_data):
                 models["smeared MC fit"] = sm_model
                 _ = initial_fitter(jpsi_df[x_var + "_smeared"], sm_model, obs)
 
-                plot_fit_result(models, data_df[x_var], obs, tags, tags["sample"] + "_" + option, pulls_switch=True)
+                plot_fit_result(models, jpsi_df[x_var + "_smeared"], obs, tags, tags["sample"] + "_" + option,
+                                pulls_switch=True)
 
 
 def plot_hists(dict, plt_name, tags, plt_title):
+    r_tag = tags["run_num"]
+    b_tag = tags["brem_cat"]
+    t_tag = tags["trig_cat"]
     plt.figure()
     h_num_bins = hist_dict[plt_name]["num_bins"]
     h_xmin = hist_dict[plt_name]["x_min"]
@@ -235,10 +233,23 @@ def plot_hists(dict, plt_name, tags, plt_title):
 
     plt.legend(loc='upper left')
     plt.title(plt_title)
-    plt.savefig(f"../Output/{plt_title}_{tags['brem_cat']}_{tags['trig_cat']}.jpg")
+    if not os.path.exists(f'../Results/Hists/{plt_name}_{plt_title}/{b_tag}_{t_tag}_{r_tag}'):
+        os.makedirs(f'../Results/Hists/{plt_name}_{plt_title}/{b_tag}_{t_tag}_{r_tag}')
+    plt.savefig(f'../Results/Hists/{plt_name}_{plt_title}/{b_tag}_{t_tag}_{r_tag}/{plt_title}_hist.jpg')
     plt.close()
 
 
-full_analysis_w_brem(data)
+def save_gauss_params(params, naming, tags):
+    r_tag = tags["run_num"]
+    b_tag = tags["brem_cat"]
+    t_tag = tags["trig_cat"]
+    if not os.path.exists(f'../Results/Parameters/{naming}/{b_tag}_{t_tag}_{r_tag}'):
+        os.makedirs(f'../Results/Parameters/{naming}/{b_tag}_{t_tag}_{r_tag}')
+    with open(f'../Results/Parameters/{naming}/{b_tag}_{t_tag}_{r_tag}/Kernel_parameters.txt', 'w') as the_file:
+        for key, value in params.items():
+            the_file.write(f'{key}: {value}\n')
+    return None
 
-# full_analysis_no_brem(data)
+
+# full_analysis_w_brem(data)
+full_analysis_no_brem(data)

@@ -11,11 +11,12 @@ initial_params_dict = {
 
     "mee_nobrem": {
         "brem_zero": {'mu': 3100., 'sigma': 21., 'alphal': 0.2, 'nl': 3.5, 'alphar': 3.0, 'nr': 3.5},
-        "brem_one": {'mu': 2900., 'sigma': 75., 'alphal': 0.14, 'nl': 100., 'alphar': 8.0, 'nr': 100.,
-                     'mu_g': 2000., 'sigma_g': 100.},
-        "brem_two": {'mu': 2400., 'sigma': 100., 'alphal': 0.2, 'nl': 50., 'alphar': 0.2, 'nr': 50.,
-                     'mu_g': 2000., 'sigma_g': 100.
-                     }
+        "brem_one": {'logn_mu': 6.2, 'logn_sigma': 0.57, 'logn_theta': -3180.,
+                     'LCB_alpha': 2.14, 'LCB_n': 20., 'LCB_mu': 2200., 'LCB_sigma': 300.,
+                     'RCB_alpha': 7., 'RCB_n': 10., 'RCB_mu': 1500.0, 'RCB_sigma': 320.},
+        "brem_two": {'logn_mu': 6.8, 'logn_sigma': 0.42, 'logn_theta': -3200.,
+                     'LCB_alpha': 0.54, 'LCB_n': 6., 'LCB_mu': 2100., 'LCB_sigma': 300.,
+                     'RCB_alpha': 1., 'RCB_n': 10., 'RCB_mu': 1400.0, 'RCB_sigma': 300.}
     }
 }
 

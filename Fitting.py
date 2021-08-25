@@ -10,6 +10,7 @@ from scipy.stats import chisquare
 import mplhep as hep
 import math
 import zfit.models.convolution as zconv
+import os
 
 from Hist_Settings import hist_dict
 
@@ -86,25 +87,25 @@ def create_initial_model(initial_parameters, obs, tags, switch="brem", params=No
 
     # gauss + exp for q2 no brem
     elif switch == "nobrem":
-        mu_l = zfit.Parameter("l_mu_CB" + name_tags(tags), 2292., 500., 3200.)
-        sigma_l = zfit.Parameter('l_sigma_CB' + name_tags(tags), 280., 0., 700.)
-        alpha_l = zfit.Parameter('l_alpha_CB' + name_tags(tags), 1.7, 0.0001, 10, )
-        n_l = zfit.Parameter('l_n_CB' + name_tags(tags), 73.)
+        mu_l = zfit.Parameter("l_mu_CB" + name_tags(tags), initial_parameters['LCB_mu'], 500., 3200.)
+        sigma_l = zfit.Parameter('l_sigma_CB' + name_tags(tags), initial_parameters['LCB_sigma'], 2., 700.)
+        alpha_l = zfit.Parameter('l_alpha_CB' + name_tags(tags), initial_parameters['LCB_alpha'], 0.0001, 10, )
+        n_l = zfit.Parameter('l_n_CB' + name_tags(tags), initial_parameters['LCB_n'], 0.0001, 50.)
 
-        mu_r = zfit.Parameter("r_mu_DCB" + name_tags(tags), 1504., 900., 3100.)
-        sigma_r = zfit.Parameter('r_sigma_DCB' + name_tags(tags), 367., 2., 600.)
-        ar_r = zfit.Parameter('alphar_DCB' + name_tags(tags), 3., 0.01, 10.)
-        nr_r = zfit.Parameter('nr_DCB' + name_tags(tags), 18., 0.01, 35.)
+        mu_r = zfit.Parameter("r_mu_DCB" + name_tags(tags), initial_parameters['RCB_mu'], 900., 3100.)
+        sigma_r = zfit.Parameter('r_sigma_DCB' + name_tags(tags), initial_parameters['RCB_sigma'], 2., 600.)
+        ar_r = zfit.Parameter('alphar_DCB' + name_tags(tags), initial_parameters['RCB_alpha'], 0.0001, 10.)
+        nr_r = zfit.Parameter('nr_DCB' + name_tags(tags), initial_parameters['RCB_n'], 0.000001, 50.)
 
         Left_CB = zfit.pdf.CrystalBall(obs=obs, mu=mu_l, sigma=sigma_l, alpha=alpha_l, n=n_l)
         Right_CB = zfit.pdf.CrystalBall(obs=obs, mu=mu_r, sigma=sigma_r, alpha=ar_r, n=nr_r)
 
-        mu = zfit.Parameter('logn_mu' + name_tags(tags), 6.)
-        theta = zfit.Parameter('logn_theta' + name_tags(tags), -3160.)
-        sigma = zfit.Parameter('logn_sigma' + name_tags(tags), .6)
+        mu = zfit.Parameter('logn_mu' + name_tags(tags), initial_parameters['logn_mu'])
+        theta = zfit.Parameter('logn_theta' + name_tags(tags), initial_parameters['logn_theta'])
+        sigma = zfit.Parameter('logn_sigma' + name_tags(tags), initial_parameters['logn_sigma'])
         Log_n = LogNormal(obs=obs, mu=mu, sigma=sigma, theta=theta)
 
-        frac1 = zfit.Parameter('frac1' + name_tags(tags), 0.75, 0.01, .99)
+        frac1 = zfit.Parameter('frac1' + name_tags(tags), 0.6, 0.01, .99)
         frac2 = zfit.Parameter('frac2' + name_tags(tags), 0.15, 0.01, .99)
 
         model = zfit.pdf.SumPDF([Log_n, Left_CB, Right_CB], fracs=[frac1, frac2])
@@ -283,7 +284,10 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
         pulls_axes.set_ylabel('Pull')
         pulls_axes.set_xlim(h_xmin, h_xmax)
         plt.grid("True", axis="y", color="black", linestyle="--")
-    plt.savefig(f"../Output/{plt_name}/{plt_name}_fit_plot_{b_tag}_{t_tag}_{r_tag}.jpg")
+
+    if not os.path.exists(f'../Results/Plots/{plt_name}/{b_tag}_{t_tag}_{r_tag}'):
+        os.makedirs(f'../Results/Plots/{plt_name}/{b_tag}_{t_tag}_{r_tag}')
+    plt.savefig(f'../Results/Plots/{plt_name}/{b_tag}_{t_tag}_{r_tag}/{plt_name}_fit_plot_{b_tag}_{t_tag}_{r_tag}.jpg')
     # plt.show()
     plt.close()
 
@@ -406,28 +410,64 @@ def create_data_fit_model(data, parameters, obs, tags):
     return parameters, models
 
 
-def convoluted_data_model(mc_pdf, data, tags, obs):
+def convoluted_data_model(mc_pdf, data, tags, obs, nobrem=False):
     num_events = len(data.index)
     data = format_data(data, obs)
-    lower = -150.
-    upper = 150.
+    lower = -450
+    upper = 450
+    if not nobrem:
+        mu = -15.
+        sigma = 15.
+    else:
+        mu = -50.
+        sigma = 50.
     # Create kernel for convolution
-    mu_g = zfit.Parameter(f"conv_ker_mu{name_tags(tags)}", -47.)
-    sigma_g = zfit.Parameter(f'conv_ker_sigma{name_tags(tags)}', 61.)
-    obs_kernel = zfit.Space('mee_nobrem', limits=(lower, upper))
-    gauss_kernel = zfit.pdf.Gauss(mu=mu_g, sigma=sigma_g, obs=obs_kernel)
+    mu_g = zfit.Parameter(f"conv_ker_mu{name_tags(tags)}", mu)
+    sigma_g = zfit.Parameter(f'conv_ker_sigma{name_tags(tags)}', sigma)
+    al = zfit.Parameter(f'conv_ker_al{name_tags(tags)}', 1.5)
+    ar = zfit.Parameter(f'conv_ker_ar{name_tags(tags)}', 1.5)
+    nl = zfit.Parameter(f'conv_ker_nl{name_tags(tags)}', 5.)
+    nr = zfit.Parameter(f'conv_ker_nr{name_tags(tags)}', 5.)
+
+    mu_ad = zfit.Parameter(f"conv_ker_mu_ad{name_tags(tags)}", mu)
+    sigma_ad = zfit.Parameter(f'conv_ker_sigma_ad{name_tags(tags)}', sigma)
+    frac = zfit.Parameter('kernel_frac' + name_tags(tags), 0.10, 0.01, .17)
+
+    obs_kernel = zfit.Space(obs.obs, limits=(lower, upper))
+    # if nobrem:
+    #     kernel = zfit.pdf.Gauss(mu=mu_g, sigma=sigma_g, obs = obs_kernel)
+    # else:
+
+    if tags["brem_cat"] != 'brem_zero':
+        DCB = zfit.pdf.DoubleCB(mu=mu_g, sigma=sigma_g, alphal=al, alphar=ar, nl=nl, nr=nr, obs=obs_kernel)
+        gauss = zfit.pdf.Gauss(mu=mu_ad, sigma=sigma_ad, obs=obs_kernel)
+        kernel = zfit.pdf.SumPDF([DCB, gauss], fracs=[frac])
+    else:
+        kernel = zfit.pdf.DoubleCB(mu=mu_g, sigma=sigma_g, alphal=al, alphar=ar, nl=nl, nr=nr, obs=obs_kernel)
+
     # Convolve pdf used to fit MC with gaussian kernel
-    conv_model = zconv.FFTConvPDFV1(mc_pdf, gauss_kernel, limits_func=(300, 3300))
+    conv_model = zconv.FFTConvPDFV1(mc_pdf, kernel)
     # Try to fit data with it?
     nll = zfit.loss.UnbinnedNLL(model=conv_model, data=data)
     minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
-    result = minimizer.minimize(nll, params=[mu_g, sigma_g])
+    # if nobrem:
+    #    params = [mu_g, sigma_g]
+    # else:
+    params = [mu_g, sigma_g, al, ar, nl, nr, sigma_ad, mu_ad, frac]
+    result = minimizer.minimize(nll, params=params)
     print("Result Valid:", result.valid)
     print("Fit converged:", result.converged)
     print(result.params)
-
-    parameters = {'mu': zfit.run(mu_g), 'sigma': zfit.run(sigma_g), 'lower': lower, 'upper': upper}
-    return conv_model, parameters
+    # if nobrem:
+    #     parameters = {'mu': zfit.run(mu_g), 'sigma': zfit.run(sigma_g), 'lower': lower, 'upper': upper}
+    # else:
+    parameters = {'mu_dcb': zfit.run(mu_g), 'sigma_dcb': zfit.run(sigma_g),
+                  'al': zfit.run(al), 'nl': zfit.run(nl),
+                  'ar': zfit.run(ar), 'nr': zfit.run(nr),
+                  'mu_g': zfit.run(mu_ad), 'sigma_g': zfit.run(sigma_ad),
+                  'frac': zfit.run(frac),
+                  'lower': lower, 'upper': upper}
+    return conv_model, parameters, kernel
 
 
 def combine_models(models, data, obs, tags):
@@ -444,9 +484,9 @@ def combine_models(models, data, obs, tags):
         n_two = zfit.Parameter("n_two" + tags["sample"] + name_tags(tags),
                                int(num_events * 0.25), int(num_events * 0.1), int(num_events * 0.4), step_size=1)
 
-        models["brem_zero"] = models["brem_zero"].create_extended(n_zero)
-        models["brem_one"] = models["brem_one"].create_extended(n_one)
-        models["brem_two"] = models["brem_two"].create_extended(n_two)
+        models["brem_zero"].set_yield(n_zero)
+        models["brem_one"].set_yield(n_one)
+        models["brem_two"].set_yield(n_two)
 
         model = zfit.pdf.SumPDF([models["brem_zero"], models["brem_one"], models["brem_two"]])
 
@@ -460,7 +500,7 @@ def combine_models(models, data, obs, tags):
         model = zfit.pdf.SumPDF([models["brem_zero"], models["brem_one"], models["brem_two"]], fracs=[frac_0, frac_1])
         n_yeild = zfit.Parameter("yield" + tags["sample"] + name_tags(tags),
                                  num_events, 0., num_events * 1.2, step_size=1)
-        model = model.create_extended(n_yeild)
+        model = model.set_yield(n_yeild)
         nll = zfit.loss.ExtendedUnbinnedNLL(model=model, data=data)
         minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
 
