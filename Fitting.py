@@ -199,7 +199,7 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
         data_errors = np.sqrt(data_x)
         data_sum = data_x.sum()
         plot_scale = data_sum * obs.area() / h_num_bins
-        main_axes.errorbar(bin_centers, data_x, yerr=np.sqrt(data_x), fmt="ok", label=tags["sample"], markersize='4')
+        main_axes.errorbar(bin_centers, data_x, yerr=np.sqrt(data_x), fmt="ok", label='data', markersize='4')
 
     main_axes.set_xlim(h_xmin, h_xmax)
     main_axes.xaxis.set_minor_locator(AutoMinorLocator())
@@ -288,6 +288,7 @@ def plot_fit_result(models, data, obs, tags, plt_name, smeared=None, pulls_switc
     if not os.path.exists(f'../Results/Plots/{plt_name}/{b_tag}_{t_tag}_{r_tag}'):
         os.makedirs(f'../Results/Plots/{plt_name}/{b_tag}_{t_tag}_{r_tag}')
     plt.savefig(f'../Results/Plots/{plt_name}/{b_tag}_{t_tag}_{r_tag}/{plt_name}_fit_plot_{b_tag}_{t_tag}_{r_tag}.jpg')
+    print('saved ' + f'../Results/Plots/{plt_name}/{b_tag}_{t_tag}_{r_tag}/{plt_name}_fit_plot_{b_tag}_{t_tag}_{r_tag}.jpg')
     # plt.show()
     plt.close()
 
@@ -422,7 +423,7 @@ def convoluted_data_model(mc_pdf, data, tags, obs, nobrem=False):
         mu = -50.
         sigma = 50.
     # Create kernel for convolution
-    mu_g = zfit.Parameter(f"conv_ker_mu{name_tags(tags)}", mu)
+    mu_g = zfit.Parameter(f"conv_ker_mu{name_tags(tags)}", mu, -100., -0.1)
     sigma_g = zfit.Parameter(f'conv_ker_sigma{name_tags(tags)}', sigma)
     al = zfit.Parameter(f'conv_ker_al{name_tags(tags)}', 1.5)
     ar = zfit.Parameter(f'conv_ker_ar{name_tags(tags)}', 1.5)
@@ -435,15 +436,16 @@ def convoluted_data_model(mc_pdf, data, tags, obs, nobrem=False):
 
     obs_kernel = zfit.Space(obs.obs, limits=(lower, upper))
     # if nobrem:
-    #     kernel = zfit.pdf.Gauss(mu=mu_g, sigma=sigma_g, obs = obs_kernel)
+    # kernel = zfit.pdf.Gauss(mu=mu_g, sigma=sigma_g, obs = obs_kernel)
     # else:
 
-    if tags["brem_cat"] != 'brem_zero':
-        DCB = zfit.pdf.DoubleCB(mu=mu_g, sigma=sigma_g, alphal=al, alphar=ar, nl=nl, nr=nr, obs=obs_kernel)
-        gauss = zfit.pdf.Gauss(mu=mu_ad, sigma=sigma_ad, obs=obs_kernel)
-        kernel = zfit.pdf.SumPDF([DCB, gauss], fracs=[frac])
-    else:
-        kernel = zfit.pdf.DoubleCB(mu=mu_g, sigma=sigma_g, alphal=al, alphar=ar, nl=nl, nr=nr, obs=obs_kernel)
+    # if tags["brem_cat"] != 'brem_zero':
+    #    DCB = zfit.pdf.DoubleCB(mu=mu_g, sigma=sigma_g, alphal=al, alphar=ar, nl=nl, nr=nr, obs=obs_kernel)
+    #    gauss = zfit.pdf.Gauss(mu=mu_ad, sigma=sigma_ad, obs=obs_kernel)
+    #    kernel = zfit.pdf.SumPDF([DCB, gauss], fracs=[frac])
+    # else:
+    #    kernel = zfit.pdf.DoubleCB(mu=mu_g, sigma=sigma_g, alphal=al, alphar=ar, nl=nl, nr=nr, obs=obs_kernel)
+    kernel = zfit.pdf.Gauss(mu=mu_g, sigma=sigma_g, obs=obs_kernel)
 
     # Convolve pdf used to fit MC with gaussian kernel
     conv_model = zconv.FFTConvPDFV1(mc_pdf, kernel)
@@ -451,22 +453,22 @@ def convoluted_data_model(mc_pdf, data, tags, obs, nobrem=False):
     nll = zfit.loss.UnbinnedNLL(model=conv_model, data=data)
     minimizer = zfit.minimize.Minuit(verbosity=0, use_minuit_grad=True)
     # if nobrem:
-    #    params = [mu_g, sigma_g]
+    params = [mu_g, sigma_g]
     # else:
-    params = [mu_g, sigma_g, al, ar, nl, nr, sigma_ad, mu_ad, frac]
+    # params = [mu_g, sigma_g, al, ar, nl, nr, sigma_ad, mu_ad, frac]
     result = minimizer.minimize(nll, params=params)
     print("Result Valid:", result.valid)
     print("Fit converged:", result.converged)
     print(result.params)
     # if nobrem:
-    #     parameters = {'mu': zfit.run(mu_g), 'sigma': zfit.run(sigma_g), 'lower': lower, 'upper': upper}
+    parameters = {'mu': zfit.run(mu_g), 'sigma': zfit.run(sigma_g), 'lower': lower, 'upper': upper}
     # else:
-    parameters = {'mu_dcb': zfit.run(mu_g), 'sigma_dcb': zfit.run(sigma_g),
-                  'al': zfit.run(al), 'nl': zfit.run(nl),
-                  'ar': zfit.run(ar), 'nr': zfit.run(nr),
-                  'mu_g': zfit.run(mu_ad), 'sigma_g': zfit.run(sigma_ad),
-                  'frac': zfit.run(frac),
-                  'lower': lower, 'upper': upper}
+    # parameters = {'mu_dcb': zfit.run(mu_g), 'sigma_dcb': zfit.run(sigma_g),
+    #               'al': zfit.run(al), 'nl': zfit.run(nl),
+    #               'ar': zfit.run(ar), 'nr': zfit.run(nr),
+    #               'mu_g': zfit.run(mu_ad), 'sigma_g': zfit.run(sigma_ad),
+    #               'frac': zfit.run(frac),
+    #               'lower': lower, 'upper': upper}
     return conv_model, parameters, kernel
 
 
