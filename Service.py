@@ -39,15 +39,19 @@ def to_GeVsq(x):
     return x / 1000000.
 
 
-def calc_q2(x):
-    return x ** 2
+def add_vars(x):
+    try:
+        return x[0]
+    except TypeError:
+        return x
 
 
-def add_vars(x, y):
-    return x + y
+def calc_cosTheta(px1, py1, pz1, px2, py2, pz2):
+    dot_product = px1 * px2 + py1 * py2 + pz1 * pz2
+    return dot_product / (np.sqrt(px1 ** 2 + py1 ** 2 + pz1 ** 2) * np.sqrt(px2 ** 2 + py2 ** 2 + pz2 ** 2))
 
 
-def calc_true_q2(dilep_PE, dilep_PX, dilep_PY, dilep_PZ):
+def calc_q2(dilep_PE, dilep_PX, dilep_PY, dilep_PZ):
     return dilep_PE ** 2 - (dilep_PX ** 2 + dilep_PY ** 2 + dilep_PZ ** 2)
 
 
@@ -66,12 +70,51 @@ def read_file(path, sample, branches):
     print("Events before cuts: {0}".format(num_before_cuts))
 
     df["B_plus_DTFM_M"] = df["B_plus_DTFM_M"].apply(extract_from_vector)
-    df["q2"] = df["J_psi_1S_M"].apply(calc_q2)
-    df["q2"] = df["q2"].apply(to_GeVsq)
+
+    for coord in ('X', "Y", 'Z'):
+        df[f'dilep_P{coord}'] = df[f'e_plus_P{coord}'] + df[f'e_minus_P{coord}']
+        df[f'TRACK_P{coord}'] = df[f'e_plus_TRACK_P{coord}'] + df[f'e_minus_TRACK_P{coord}']
+
+    df['dilep_PE'] = df[f'e_plus_PE'] + df[f'e_minus_PE']
+    df['TRACK_PE'] = np.sqrt(0.511 ** 2 + np.power(df['e_minus_TRACK_P'], 2)) + \
+                     np.sqrt(0.511 ** 2 + np.power(df['e_plus_TRACK_P'], 2))
+
+    for component in ('X', 'Y', 'Z', 'E'):
+        df[f'brem_P{component}'] = df[f'dilep_P{component}'] - df[f"TRACK_P{component}"]
+
+    df['q2'] = (np.power(df['dilep_PE'], 2) -
+                (np.power(df['dilep_PX'], 2) + np.power(df['dilep_PY'], 2) + np.power(df['dilep_PZ'], 2))) / 10 ** 6
+
+    df['cosTheta'] = np.vectorize(calc_cosTheta)(df['e_plus_PX'], df['e_plus_PY'], df['e_plus_PZ'],
+                                                 df['e_minus_PX'], df['e_minus_PY'], df['e_minus_PZ'])
+
+    df['q2_nobrem'] = (df['TRACK_PE'] ** 2 - \
+                       (df['e_plus_TRACK_P'] ** 2 + df['e_minus_TRACK_P'] ** 2 +
+                        2 * df['e_plus_TRACK_P'] *
+                        df['e_minus_TRACK_P'] *
+                        df['cosTheta'])) / 10 ** 6
+
+    df['brem_P'] = np.sqrt(np.power(df[f'brem_PX'], 2) + np.power(df[f'brem_PY'], 2) + np.power(df[f'brem_PZ'], 2))
+    df['TRACK_P'] = np.sqrt(np.power(df[f'TRACK_PX'], 2) + np.power(df[f'TRACK_PY'], 2)
+                            + np.power(df[f'TRACK_PZ'], 2))
+
+    df['TRACK_cosTheta'] = np.vectorize(calc_cosTheta)(df['e_plus_TRACK_PX'], df['e_plus_TRACK_PY'],
+                                                       df['e_plus_TRACK_PZ'],
+                                                       df['e_minus_TRACK_PX'], df['e_minus_TRACK_PY'],
+                                                       df['e_minus_TRACK_PZ'])
 
     df = df.query("q2 > 6.0 and q2 < 12.96")  # according to LHCb-ANA-2017-042, Section 5.4.1, table 3
     df = df.query("B_plus_DTFM_M > 5200 and B_plus_DTFM_M < 5680")  # same, Section 6.9 (stricter cut)
     df = df.query("BDT_score_selection >= 0.8")  # 85% of signal
+
+    df.drop(["BDT_score_selection", "B_plus_DTFM_M",
+             'e_plus_TRACK_PY', 'e_plus_TRACK_PX',
+             'e_plus_TRACK_PZ', 'e_minus_TRACK_PY', 'e_minus_TRACK_PX',
+             'e_minus_TRACK_PZ', 'e_plus_PX',
+             'e_plus_PE', 'e_plus_PZ', 'e_minus_PY', 'e_minus_PX',
+             'e_minus_PE', 'e_minus_PZ', "e_plus_PY"],
+            axis=1,
+            inplace=True)
 
     num_after_cuts = len(df.index)
     print("Number of events after cuts: {0}".format(num_after_cuts))
@@ -89,12 +132,40 @@ def read_rare_MC(path, sample, branches):
     print("Events before cuts: {0}".format(num_before_cuts))
 
     df["B_plus_DTFM_M"] = df["B_plus_DTFM_M"].apply(extract_from_vector)
-    df["q2"] = df["J_psi_1S_M"].apply(calc_q2)
-    df["q2"] = df["q2"].apply(to_GeVsq)
-    df["q2_nobrem"] = (df['J_psi_1S_TRACK_M'] / 1000) ** 2
+
+    for coord in ('X', "Y", 'Z'):
+        df[f'dilep_P{coord}'] = df[f'e_plus_P{coord}'] + df[f'e_minus_P{coord}']
+        df[f'TRACK_P{coord}'] = df[f'e_plus_TRACK_P{coord}'] + df[f'e_minus_TRACK_P{coord}']
+
+    df['dilep_PE'] = df[f'e_plus_PE'] + df[f'e_minus_PE']
+    df['TRACK_PE'] = np.sqrt(0.511 ** 2 + np.power(df['e_minus_TRACK_P'], 2)) + \
+                     np.sqrt(0.511 ** 2 + np.power(df['e_plus_TRACK_P'], 2))
+
+    for component in ('X', 'Y', 'Z', 'E'):
+        df[f'brem_P{component}'] = df[f'dilep_P{component}'] - df[f"TRACK_P{component}"]
+
+    df['q2'] = (np.power(df['dilep_PE'], 2) -
+                (np.power(df['dilep_PX'], 2) + np.power(df['dilep_PY'], 2) + np.power(df['dilep_PZ'], 2))) / 10 ** 6
+
+    df['q2_nobrem'] = (np.power(df['TRACK_PE'], 2) - (
+            np.power(df['TRACK_PX'], 2) + np.power(df['TRACK_PY'], 2) + np.power(df['TRACK_PZ'],
+                                                                                 2))) / 10 ** 6
+
+    df['brem_P'] = np.sqrt(np.power(df[f'brem_PX'], 2) + np.power(df[f'brem_PY'], 2) + np.power(df[f'brem_PZ'], 2))
+    df['TRACK_P'] = np.sqrt(np.power(df[f'TRACK_PX'], 2) + np.power(df[f'TRACK_PY'], 2)
+                            + np.power(df[f'TRACK_PZ'], 2))
 
     df = df.query("B_plus_M > 4880 and B_plus_M < 6200")  # same, Section 6.9 (stricter cut)
     df = df.query("BDT_score_selection >= 0.8")  # 85% of signal
+
+    df.drop(["BDT_score_selection", "B_plus_DTFM_M",
+             'e_plus_TRACK_PY', 'e_plus_TRACK_PX',
+             'e_plus_TRACK_P', 'e_plus_TRACK_PZ', 'e_minus_TRACK_PY', 'e_minus_TRACK_PX',
+             'e_minus_TRACK_P', 'e_minus_TRACK_PZ', 'e_plus_PX',
+             'e_plus_PE', 'e_plus_PZ', 'e_minus_PY', 'e_minus_PX',
+             'e_minus_PE', 'e_minus_PZ', "e_plus_PY"],
+            axis=1,
+            inplace=True)
 
     num_after_cuts = len(df.index)
     print("Number of events after cuts: {0}".format(num_after_cuts))
@@ -108,17 +179,9 @@ def create_new_vars(df, sample):
     # add brem/no_brem variables here if needed
 
     if "MC" in sample:
-        df["q2_TRUE"] = df["J_psi_1S_M_TRUE"].apply(calc_q2)
+        df["q2_TRUE"] = np.power(df["J_psi_1S_M_TRUE"], 2)
         df["q2_TRUE"] = df["q2_TRUE"].apply(to_GeVsq)
 
-    elif "data" in sample:
-        df["J_psi_1S_M_TRUE"] = 3096.9  # pdg
-        df["B_plus_M_TRUE"] = 5279.26  # pdg
-        df["q2_TRUE"] = (3096.9 / 1000) ** 2
-
-    df["q2_nobrem"] = (df['J_psi_1S_TRACK_M'] / 1000) ** 2
-
-    # let's get the fits first
     return df
 
 
@@ -287,8 +350,14 @@ def categorize_by_brem(data):
                   "\nBrem one:  {1}\nBrem two:  {2}".format(b_zero_n, b_one_n, b_two_n))
 
             sample_df = pandas.concat([brem0_df, brem1_df, brem2_df])
+
+            sample_df.drop(["e_plus_BremMultiplicity", "e_minus_BremMultiplicity"],
+                           axis=1,
+                           inplace=True)
+
             data[run_num][s] = sample_df.copy()
             del sample_df
+
     return data
 
 
@@ -320,8 +389,20 @@ def categorize_by_trig(data):
 
             print("Events in different categories:\neTOS: {0}\nTIS:  {1}".format(eTOS_n, TIS_n))
             sample_df = pandas.concat([TIS_df, eTOS_df])
+
+            sample_df.drop(["L0TISOnly_d", "L0ETOSOnly_d",
+                            'e_plus_L0Calo_ECAL_realET', 'e_minus_L0Calo_ECAL_realET', 'TCKCat',
+                            'e_minus_L0ElectronDecision_TOS',
+                            'B_plus_L0Global_TIS', 'e_plus_L0ElectronDecision_TOS', 'e_plus_L0Calo_ECAL_realET',
+                            'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_plus_L0ElectronDecision_TOS',
+                            'B_plus_L0Global_TIS',
+                            'e_minus_L0ElectronDecision_TOS'],
+                           axis=1,
+                           inplace=True)
+
             data[run_num][s] = sample_df.copy()
             del sample_df
+
     return data
 
 

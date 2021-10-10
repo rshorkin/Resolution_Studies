@@ -14,22 +14,6 @@ import zfit
 # This file hosts smearing functions #
 # ================================== #
 
-def smearing_fn(m, m_true, scale_sigma, delta_mu, mu, particle_mass):
-    return m_true + scale_sigma * (m - m_true) + delta_mu + (1 - scale_sigma) * (mu - particle_mass)
-
-
-def smear(data, parameters, x_var):
-    mu = parameters["mu"]
-    delta_mu = parameters["delta_mu"]
-    scale_sigma = parameters["scale_sigma"]
-    mass = parameters["mass"]
-
-    m_df = data[x_var].to_numpy()
-    m_true_df = data[x_var + "_TRUE"].to_numpy()
-
-    data[x_var + "_smeared"] = np.vectorize(smearing_fn)(m_df, m_true_df, scale_sigma, delta_mu, mu, mass)
-    return data
-
 
 def convolved_smearing(data, x_var, kernel=None, parameters=None):
     if parameters is None and kernel is None:
@@ -109,7 +93,7 @@ def calc_migration(data, cut, true_cut=None, nobrem=False):
             'up -> in, [%]': f"{sm_migration_up:.2f}"}
 
 
-def smear_from_csv(data, x_var, tags, naming, add=''):
+def smear_from_csv(data, x_var, tags, naming):
     r_tag = tags["run_num"]
     b_tag = tags["brem_cat"]
     t_tag = tags["trig_cat"]
@@ -122,16 +106,16 @@ def smear_from_csv(data, x_var, tags, naming, add=''):
     upper = params['upper']
     obs_kernel = zfit.Space('kernel obs', limits=(lower, upper))
     if 'mu_g' and 'mu_dcb' in params.keys():
-        mu_g = zfit.Parameter(f"conv_ker_mu{name_tags(tags)}{add}", params['mu_g'])
-        sigma_g = zfit.Parameter(f'conv_ker_sigma{name_tags(tags)}{add}', params['sigma_g'])
-        al = zfit.Parameter(f'conv_ker_al{name_tags(tags)}{add}', params['al'])
-        ar = zfit.Parameter(f'conv_ker_ar{name_tags(tags)}{add}', params['ar'])
-        nl = zfit.Parameter(f'conv_ker_nl{name_tags(tags)}{add}', params['nl'])
-        nr = zfit.Parameter(f'conv_ker_nr{name_tags(tags)}{add}', params['nr'])
+        mu_g = zfit.Parameter(f"conv_ker_mu{name_tags(tags)}{x_var}", params['mu_g'])
+        sigma_g = zfit.Parameter(f'conv_ker_sigma{name_tags(tags)}{x_var}', params['sigma_g'])
+        al = zfit.Parameter(f'conv_ker_al{name_tags(tags)}{x_var}', params['al'])
+        ar = zfit.Parameter(f'conv_ker_ar{name_tags(tags)}{x_var}', params['ar'])
+        nl = zfit.Parameter(f'conv_ker_nl{name_tags(tags)}{x_var}', params['nl'])
+        nr = zfit.Parameter(f'conv_ker_nr{name_tags(tags)}{x_var}', params['nr'])
 
-        mu_ad = zfit.Parameter(f"conv_ker_mu_ad{name_tags(tags)}{add}", params['mu_dcb'])
-        sigma_ad = zfit.Parameter(f'conv_ker_sigma_ad{name_tags(tags)}{add}', params['sigma_dcb'])
-        frac = zfit.Parameter('kernel_frac' + name_tags(tags) + f'_{add}', params['frac'])
+        mu_ad = zfit.Parameter(f"conv_ker_mu_ad{name_tags(tags)}{x_var}", params['mu_dcb'])
+        sigma_ad = zfit.Parameter(f'conv_ker_sigma_ad{name_tags(tags)}{x_var}', params['sigma_dcb'])
+        frac = zfit.Parameter('kernel_frac' + name_tags(tags) + f'_{x_var}', params['frac'])
 
         if tags["brem_cat"] != 'brem_zero':
             DCB = zfit.pdf.DoubleCB(mu=mu_ad, sigma=sigma_ad, alphal=al, alphar=ar, nl=nl, nr=nr, obs=obs_kernel)
@@ -141,8 +125,8 @@ def smear_from_csv(data, x_var, tags, naming, add=''):
             kernel = zfit.pdf.DoubleCB(mu=mu_ad, sigma=sigma_ad, alphal=al, alphar=ar, nl=nl, nr=nr, obs=obs_kernel)
 
     elif 'mu' in params.keys():
-        mu = zfit.Parameter(f"conv_ker_mu{name_tags(tags)}{add}", params['mu'])
-        sigma = zfit.Parameter(f'conv_ker_sigma{name_tags(tags)}{add}', params['sigma'])
+        mu = zfit.Parameter(f"conv_ker_mu{name_tags(tags)}{x_var}", params['mu'])
+        sigma = zfit.Parameter(f'conv_ker_sigma{name_tags(tags)}{x_var}', params['sigma'])
 
         kernel = zfit.pdf.Gauss(mu=mu, sigma=sigma, obs=obs_kernel)
 
@@ -151,3 +135,16 @@ def smear_from_csv(data, x_var, tags, naming, add=''):
     return data
 
 
+def smear_manually(data, x_var, tags, add=''):
+    lower = -450
+    upper = 450
+    obs_kernel = zfit.Space('kernel obs', limits=(lower, upper))
+
+    mu = zfit.Parameter(f"conv_ker_mu{name_tags(tags)}{add}", -30.)
+    sigma = zfit.Parameter(f'conv_ker_sigma{name_tags(tags)}{add}', 1.)
+
+    kernel = zfit.pdf.Gauss(mu=mu, sigma=sigma, obs=obs_kernel)
+
+    m_df = data[x_var].to_numpy()
+    data[x_var + '_smeared'] = m_df + kernel.sample(len(m_df)).numpy().reshape(-1)
+    return data
