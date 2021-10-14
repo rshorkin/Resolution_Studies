@@ -55,6 +55,12 @@ def calc_q2_res(q2, true_q2):
     return (q2 - true_q2) / true_q2
 
 
+def calc_cosTheta(e_plus_px, e_plus_py, e_plus_pz, e_plus_p, e_minus_px, e_minus_py, e_minus_pz, e_minus_p):
+    dot_product = e_plus_px * e_minus_px + e_plus_py * e_minus_py + e_plus_pz * e_minus_pz
+    cosTheta = dot_product / (e_plus_p * e_minus_p)
+    return cosTheta
+
+
 def read_file(path, sample, branches):
     print("=====")
     print("Processing {0} file".format(sample))
@@ -68,10 +74,17 @@ def read_file(path, sample, branches):
     df["B_plus_DTFM_M"] = df["B_plus_DTFM_M"].apply(extract_from_vector)
     df["q2"] = df["J_psi_1S_M"].apply(calc_q2)
     df["q2"] = df["q2"].apply(to_GeVsq)
-
+    df['e_plus_BREM_P'] = df['e_plus_P'] - df['e_plus_TRACK_P']
+    df['e_minus_BREM_P'] = df['e_minus_P'] - df['e_minus_TRACK_P']
+    df['cosTheta'] = np.vectorize(calc_cosTheta)(df.e_plus_PX, df.e_plus_PY, df.e_plus_PZ, df.e_plus_P,
+                                                 df.e_minus_PX, df.e_minus_PY, df.e_minus_PZ, df.e_minus_P)
     df = df.query("q2 > 6.0 and q2 < 12.96")  # according to LHCb-ANA-2017-042, Section 5.4.1, table 3
     df = df.query("B_plus_DTFM_M > 5200 and B_plus_DTFM_M < 5680")  # same, Section 6.9 (stricter cut)
     df = df.query("BDT_score_selection >= 0.8")  # 85% of signal
+
+    df.drop(['e_plus_PX', 'e_plus_PY', 'e_plus_PZ', 'e_minus_PX', 'e_minus_PY', 'e_minus_PZ'],
+            axis=1,
+            inplace=True)
 
     num_after_cuts = len(df.index)
     print("Number of events after cuts: {0}".format(num_after_cuts))
@@ -93,8 +106,17 @@ def read_rare_MC(path, sample, branches):
     df["q2"] = df["q2"].apply(to_GeVsq)
     df["q2_nobrem"] = (df['J_psi_1S_TRACK_M'] / 1000) ** 2
 
+    df['e_plus_BREM_P'] = df['e_plus_P'] - df['e_plus_TRACK_P']
+    df['e_minus_BREM_P'] = df['e_minus_P'] - df['e_minus_TRACK_P']
+    df['cosTheta'] = np.vectorize(calc_cosTheta)(df.e_plus_PX, df.e_plus_PY, df.e_plus_PZ, df.e_plus_P,
+                                                 df.e_minus_PX, df.e_minus_PY, df.e_minus_PZ, df.e_minus_P)
+
     df = df.query("B_plus_M > 4880 and B_plus_M < 6200")  # same, Section 6.9 (stricter cut)
     df = df.query("BDT_score_selection >= 0.8")  # 85% of signal
+
+    df.drop(['e_plus_PX', 'e_plus_PY', 'e_plus_PZ', 'e_minus_PX', 'e_minus_PY', 'e_minus_PZ'],
+            axis=1,
+            inplace=True)
 
     num_after_cuts = len(df.index)
     print("Number of events after cuts: {0}".format(num_after_cuts))

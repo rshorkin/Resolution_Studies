@@ -25,14 +25,18 @@ data_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection
                  'e_plus_L0Calo_ECAL_realET', 'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_minus_L0ElectronDecision_TOS',
                  'B_plus_L0Global_TIS', 'e_plus_L0ElectronDecision_TOS', 'e_plus_L0Calo_ECAL_realET',
                  'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_plus_L0ElectronDecision_TOS', 'B_plus_L0Global_TIS',
-                 'e_minus_L0ElectronDecision_TOS', 'J_psi_1S_ETA']
+                 'e_minus_L0ElectronDecision_TOS', 'J_psi_1S_ETA',
+                 'e_plus_TRACK_P', 'e_plus_P', 'e_minus_TRACK_P', 'e_minus_P',
+                 'e_plus_PX', 'e_plus_PY', 'e_plus_PZ', 'e_minus_PX', 'e_minus_PY', 'e_minus_PZ']
 
 mc_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection", "J_psi_1S_M_TRUE",
                "e_plus_BremMultiplicity", "e_minus_BremMultiplicity", "L0TISOnly_d", "L0ETOSOnly_d",
                'e_plus_L0Calo_ECAL_realET', 'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_minus_L0ElectronDecision_TOS',
                'B_plus_L0Global_TIS', 'e_plus_L0ElectronDecision_TOS', 'e_plus_L0Calo_ECAL_realET',
                'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_plus_L0ElectronDecision_TOS', 'B_plus_L0Global_TIS',
-               'e_minus_L0ElectronDecision_TOS', "J_psi_1S_TRACK_M", "B_plus_M_TRUE", 'J_psi_1S_ETA']
+               'e_minus_L0ElectronDecision_TOS', "J_psi_1S_TRACK_M", "B_plus_M_TRUE", 'J_psi_1S_ETA',
+               'e_plus_TRACK_P', 'e_plus_P', 'e_minus_TRACK_P', 'e_minus_P',
+               'e_plus_PX', 'e_plus_PY', 'e_plus_PZ', 'e_minus_PX', 'e_minus_PY', 'e_minus_PZ']
 
 hist_dict = {"Jpsi_MC_mee": {"plot_label": "$B \\rightarrow KJ/\\psi$",
                              "bin_width": 30,
