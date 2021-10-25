@@ -1,7 +1,7 @@
 import zfit
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import AutoMinorLocator, LogLocator, LogFormatterSciNotation
+from matplotlib.ticker import AutoMinorLocator, LogLocator, LogFormatterSciNotation, NullFormatter
 import mplhep as hep
 import os
 
@@ -156,7 +156,8 @@ def plot_fit_result(models, data, obs, tags, plt_name, pulls_switch=False):
     plt.close()
 
 
-def plot_hists(hists: dict, tags: dict, bin_range, nbins=100, save_file='', xlabel='', ylabel='', title=''):
+def plot_hists(hists: dict, tags, bin_range, nbins=100, save_file='', xlabel='', ylabel='', title='', stand_hist=None,
+               log=False, x_log=False):
     r_tag = tags["run_num"]
     b_tag = tags["brem_cat"]
     t_tag = tags["trig_cat"]
@@ -174,6 +175,9 @@ def plot_hists(hists: dict, tags: dict, bin_range, nbins=100, save_file='', xlab
 
     bins = [h_xmin + x * h_bin_width for x in range(h_num_bins + 1)]
     bin_centers = [h_xmin + h_bin_width / 2 + x * h_bin_width for x in range(h_num_bins)]
+    if x_log:
+        logbins = np.logspace(np.log10(bins[0]), np.log10(bins[-1]), len(bins))
+        bin_centers = [(logbins[i] + logbins[i + 1]) / 2 for i in range(len(logbins) - 1)]
 
     plt.clf()
     plt.style.use(hep.style.ATLAS)
@@ -183,33 +187,150 @@ def plot_hists(hists: dict, tags: dict, bin_range, nbins=100, save_file='', xlab
     main_axes.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
     main_axes.set_title(title, fontsize=18)
 
-    for hist in hists:
-        data_x, _, _ = plt.hist(hist, bins=bins, density=True)
+    pulls_dict = {}
+    ratio_err_dict = {}
+    stand_err_dict = {}
+
+    for key, value in hists.items():
+        if not x_log:
+            data_x, _ = np.histogram(value, bins=h_num_bins, range=bin_range)
+        else:
+            data_x, _ = np.histogram(value, bins=logbins)
         data_errors = np.sqrt(data_x)
         data_sum = data_x.sum()
-        main_axes.errorbar(bin_centers, data_x, yerr=np.sqrt(data_x), label='data', markersize='4')
+
+        data_x = data_x / data_sum
+        data_errors = data_errors / data_sum
+
+        main_axes.errorbar(bin_centers, data_x, yerr=data_errors, label=f'{key}', fmt='o',
+                           markersize='4')
+
+        if stand_hist:
+            if stand_hist != key:
+                if not x_log:
+                    stand_x, _ = np.histogram(hists[stand_hist], bins=h_num_bins, range=bin_range)
+                else:
+                    stand_x, _ = np.histogram(hists[stand_hist], bins=logbins)
+                stand_errors = np.sqrt(stand_x)
+                stand_sum = stand_x.sum()
+
+                stand_x = stand_x / stand_sum
+                stand_errors = stand_errors / stand_sum
+
+                cond = np.not_equal(stand_x, 0.)
+                pulls_dict[key] = np.where(cond,
+                                           np.divide(
+                                               data_x,
+                                               stand_x),
+                                           1.)
+
+                cond = np.not_equal(data_x, 0.)
+                ratio_err_dict[key] = np.where(cond,
+                                               np.divide(stand_errors, data_x),
+                                               0.)
+
+                cond = np.not_equal(stand_x, 0.)
+                stand_err_dict[key] = np.where(cond,
+                                               np.divide(data_errors, stand_x),
+                                               0.)
 
     main_axes.set_xlim(h_xmin, h_xmax)
     main_axes.xaxis.set_minor_locator(AutoMinorLocator())
     main_axes.set_ylabel(h_ylabel)
-    colors = ["b", "k", "r"]
-    j = 0
 
-    main_axes.legend(title=plot_label, loc="upper left")
+    main_axes.legend(title=plot_label, loc="upper right")
     main_axes.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
 
-    # main_axes.set_yscale('log')
-    # bottom = max([min(data_x) * 0.7, 10.])
-    # main_axes.set_ylim(bottom=bottom)
-    # main_axes.yaxis.set_major_formatter(CustomTicker())
-    # locmin = LogLocator(base=10.0, subs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9), numticks=12)
-    # main_axes.yaxis.set_minor_locator(locmin)
+    if log:
+        main_axes.set_yscale('log')
+        bottom = min([min(data_x) * 0.7, 10.])
+        main_axes.set_ylim(bottom=bottom)
+        main_axes.yaxis.set_major_formatter(CustomTicker())
+        locmin = LogLocator(base=10.0, subs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9), numticks=12)
+        main_axes.yaxis.set_minor_locator(locmin)
+    if not log:
+        main_axes.set_ylim(bottom=0)
 
-    main_axes.set_ylim(bottom=0)
+    if x_log:
+        main_axes.set_xscale('log')
 
-    # if not os.path.exists(f'../Results/Hists/{save_file}/{b_tag}_{t_tag}_{r_tag}'):
-    #     os.makedirs(f'../Results/Plots/{save_file}/{b_tag}_{t_tag}_{r_tag}')
-    # plt.savefig(f'../Results/Plots/{save_file}/{save_file}_hist_{b_tag}_{t_tag}_{r_tag}.jpg')
-    # print('saved ' + f'../Results/Plots/{save_file}/{save_file}_hist_{b_tag}_{t_tag}_{r_tag}.jpg')
-    plt.show()
+    if stand_hist is None:
+        main_axes.set_xlabel(h_xlabel)
+
+    if stand_hist:
+        main_axes.set_xticklabels([])
+        # pulls subplot
+        plt.axes([0.1, 0.1, 0.85, 0.2])
+        plt.yscale("linear")
+        pulls_axes = plt.gca()
+        for key in hists.keys():
+            if key != stand_hist:
+                pulls = pulls_dict[key]
+                if not x_log:
+                    xs = [h_xmin]
+                    ys = [pulls[0]]
+                    for i in range(h_num_bins - 1):
+                        xs.append(h_xmin + h_bin_width * (1 + i))
+                        xs.append(h_xmin + h_bin_width * (1 + i))
+                        ys.append(pulls[i])
+                        ys.append(pulls[i + 1])
+                    del i
+                    xs.append(h_xmax)
+                    ys.append(pulls[-1])
+                    pulls_axes.plot(xs, ys, label=f'"Ratio" for {key}')
+                else:
+                    xs = [h_xmin]
+                    ys = [pulls[0]]
+                    for i in range(h_num_bins - 1):
+                        xs.append(logbins[i + 1])
+                        xs.append(logbins[i + 1])
+                        ys.append(pulls[i])
+                        ys.append(pulls[i + 1])
+                    del i
+                    xs.append(h_xmax)
+                    ys.append(pulls[-1])
+                    pulls_axes.plot(xs, ys, label=f'"Ratio" for {key}')
+
+                if not x_log:
+                    pulls_axes.bar(bin_centers, 2 * ratio_err_dict[key],
+                                   bottom=pulls - ratio_err_dict[key],
+                                   alpha=0.5, color='blue',
+                                   hatch=r"\\\\", width=h_bin_width)
+                    pulls_axes.bar(bin_centers, 2 * stand_err_dict[key],
+                                   bottom=np.ones_like(stand_err_dict[key]) - stand_err_dict[key],
+                                   alpha=0.5, color='none',
+                                   hatch="////", width=h_bin_width)
+                else:
+                    widths = [logbins[i + 1] - logbins[1] for i in range(len(logbins) - 1)]
+                    pulls_axes.bar(bin_centers, 2 * ratio_err_dict[key],
+                                   bottom=pulls - ratio_err_dict[key],
+                                   alpha=0.5, color='blue',
+                                   hatch=r"\\\\", width=widths)
+                    pulls_axes.bar(bin_centers, 2 * stand_err_dict[key],
+                                   bottom=np.ones_like(stand_err_dict[key]) - stand_err_dict[key],
+                                   alpha=0.5, color='none',
+                                   hatch="////", width=widths)
+
+        pulls_axes.set_yscale('log')
+        # locmin = LogLocator(base=10.0, subs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9), numticks=12)
+        # pulls_axes.yaxis.set_minor_locator(locmin)
+
+        if x_log:
+            pulls_axes.set_xscale('log')
+
+        pulls_axes.set_ylim(0.3, 3.)
+        pulls_axes.set_yticks([0.5, 1., 2.])
+        pulls_axes.yaxis.set_minor_formatter(NullFormatter())
+        pulls_axes.set_yticklabels([0.5, 1., 2.])
+
+        pulls_axes.set_xlabel(h_xlabel)
+        pulls_axes.set_ylabel('Ratio')
+        pulls_axes.set_xlim(h_xmin, h_xmax)
+        plt.grid("True", axis="y", color="black", linestyle="--")
+
+    if not os.path.exists(f'../Results/Hists/{save_file}/'):
+        os.makedirs(f'../Results/Hists/{save_file}/')
+    plt.savefig(f'../Results/Hists/{save_file}/{title}_hist_{b_tag}_{t_tag}_{r_tag}.jpg')
+    print('saved ' + f'../Results/Hists/{save_file}/{title}_hist_{b_tag}_{t_tag}_{r_tag}.jpg')
+    # plt.show()
     plt.close()

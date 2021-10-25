@@ -74,10 +74,12 @@ def read_file(path, sample, branches):
     df["B_plus_DTFM_M"] = df["B_plus_DTFM_M"].apply(extract_from_vector)
     df["q2"] = df["J_psi_1S_M"].apply(calc_q2)
     df["q2"] = df["q2"].apply(to_GeVsq)
+    df["q2_nobrem"] = (df['J_psi_1S_TRACK_M'] / 1000) ** 2
     df['e_plus_BREM_P'] = df['e_plus_P'] - df['e_plus_TRACK_P']
     df['e_minus_BREM_P'] = df['e_minus_P'] - df['e_minus_TRACK_P']
     df['cosTheta'] = np.vectorize(calc_cosTheta)(df.e_plus_PX, df.e_plus_PY, df.e_plus_PZ, df.e_plus_P,
                                                  df.e_minus_PX, df.e_minus_PY, df.e_minus_PZ, df.e_minus_P)
+    df['q2_ADD'] = df['q2'] - df['q2_nobrem']
     df = df.query("q2 > 6.0 and q2 < 12.96")  # according to LHCb-ANA-2017-042, Section 5.4.1, table 3
     df = df.query("B_plus_DTFM_M > 5200 and B_plus_DTFM_M < 5680")  # same, Section 6.9 (stricter cut)
     df = df.query("BDT_score_selection >= 0.8")  # 85% of signal
@@ -105,6 +107,7 @@ def read_rare_MC(path, sample, branches):
     df["q2"] = df["J_psi_1S_M"].apply(calc_q2)
     df["q2"] = df["q2"].apply(to_GeVsq)
     df["q2_nobrem"] = (df['J_psi_1S_TRACK_M'] / 1000) ** 2
+    df['q2_ADD'] = df['q2'] - df['q2_nobrem']
 
     df['e_plus_BREM_P'] = df['e_plus_P'] - df['e_plus_TRACK_P']
     df['e_minus_BREM_P'] = df['e_minus_P'] - df['e_minus_TRACK_P']

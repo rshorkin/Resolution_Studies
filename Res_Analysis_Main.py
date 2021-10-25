@@ -293,21 +293,37 @@ def smear_q2_TRACK(_data):
                     save_gauss_params(parameters, option, tags)
                 elif read_switch == 1:
                     jpsi_df = Smearing.smear_from_csv(data=jpsi_df, naming='mee_nobrem', tags=tags, x_var=x_var)
-                #    rare_df = Smearing.smear_from_csv(data=rare_df, naming='mee_nobrem', tags=tags, x_var=x_var, add='_rare')
+                    # rare_df = Smearing.smear_from_csv(data=rare_df, naming='mee_nobrem', tags=tags,
+                    # x_var=x_var, add='_rare')
 
                 # =================================================================================
 
                 plt_name = 'data vs smeared MC'
                 hists = {"data hist": data_df[x_var], "smeared mc hist": jpsi_df[x_var + "_smeared"]}
-                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+                plot_hists(hists, tags=tags, nbins=100, bin_range=(300, 3300),
+                           save_file=x_var,
+                           xlabel=r'$J/\psi TRACK mass, [MeV/c^2]$',
+                           ylabel='Normed events / 30',
+                           title=plt_name,
+                           stand_hist="data hist")
 
                 plt_name = 'data vs MC'
                 hists = {"data hist": data_df[x_var], "mc hist": jpsi_df[x_var]}
-                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+                plot_hists(hists, tags=tags, nbins=100, bin_range=(300, 3300),
+                           save_file=x_var,
+                           xlabel=r'$J/\psi TRACK mass, [MeV/c^2]$',
+                           ylabel='Normed events / 30',
+                           title=plt_name,
+                           stand_hist="data hist")
 
                 plt_name = 'MC vs smeared MC'
                 hists = {"mc hist": jpsi_df[x_var], "smeared mc hist": jpsi_df[x_var + "_smeared"]}
-                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+                plot_hists(hists, tags=tags, nbins=100, bin_range=(300, 3300),
+                           save_file=x_var,
+                           xlabel=r'$J/\psi$ TRACK mass, $[MeV/c^2]$',
+                           ylabel='Normed events / 30',
+                           title=plt_name,
+                           stand_hist="mc hist")
 
                 # =================================================================================
 
@@ -315,36 +331,212 @@ def smear_q2_TRACK(_data):
                 jpsi_df = smear_TRACK_P(jpsi_df)
                 jpsi_df = calc_smeared_q2(jpsi_df)
 
+                plt_name = 'MC smeared hist'
+                hists = {"mc hist": jpsi_df['smear_factor']}
+                plot_hists(hists, tags=tags, nbins=40, bin_range=(0.9, 1.1),
+                           save_file='MC smear factor',
+                           xlabel=r'smear factor values',
+                           ylabel='Normed events',
+                           title=plt_name,
+                           stand_hist=None)
+
                 plt_name = 'data vs smeared MC q2'
                 hists = {"data hist": data_df['q2'], "smeared mc hist": jpsi_df["q2_smeared"]}
-                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+                plot_hists(hists, tags=tags, nbins=35, bin_range=(6, 13),
+                           save_file='q2 assume factor',
+                           xlabel=r'$q^2, [GeV^2/c^4]$',
+                           ylabel='Normed events / 0.2',
+                           title=plt_name,
+                           stand_hist="data hist")
 
                 plt_name = 'data vs MC q2'
                 hists = {"data hist": data_df['q2'], "mc hist": jpsi_df['q2']}
-                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+                plot_hists(hists, tags=tags, nbins=35, bin_range=(6, 13),
+                           save_file='q2 assume factor',
+                           xlabel=r'$q^2, [GeV^2/c^4]$',
+                           ylabel='Normed events / 0.2',
+                           title=plt_name,
+                           stand_hist="data hist")
 
                 plt_name = 'MC vs smeared MC q2'
                 hists = {"mc hist": jpsi_df['q2'], "smeared mc hist": jpsi_df["q2_smeared"]}
-                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+                plot_hists(hists, tags=tags, nbins=35, bin_range=(6, 13),
+                           save_file='q2 assume factor',
+                           xlabel=r'$q^2, [GeV^2/c^4]$',
+                           ylabel='Normed events / 0.2',
+                           title=plt_name,
+                           stand_hist="mc hist")
 
                 # =================================================================================
 
                 plt_name = 'data vs smeared MC q2 TRACK'
                 hists = {"data hist": data_df['q2_nobrem'], "smeared mc hist": jpsi_df["q2_nobrem_smeared"]}
-                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 10),
+                           save_file='q2_TRACK',
+                           xlabel=r'$q^2 TRACK, [GeV^2/c^4]$',
+                           ylabel='Normed events / 0.2',
+                           title=plt_name,
+                           stand_hist="data hist")
 
                 plt_name = 'data vs MC q2 TRACK'
                 hists = {"data hist": data_df['q2_nobrem'], "mc hist": jpsi_df['q2_nobrem']}
-                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 10),
+                           save_file='q2_TRACK',
+                           xlabel=r'$q^2 TRACK, [GeV^2/c^4]$',
+                           ylabel='Normed events / 0.2',
+                           title=plt_name,
+                           stand_hist="data hist")
 
                 plt_name = 'MC vs smeared MC q2 TRACK'
                 hists = {"mc hist": jpsi_df['q2_nobrem'], "smeared mc hist": jpsi_df["q2_nobrem_smeared"]}
-                plot_hists(hists, tags["sample"] + "_" + option, tags, plt_name)
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 10),
+                           save_file='q2_TRACK',
+                           xlabel=r'$q^2 TRACK, [GeV^2/c^4]$',
+                           ylabel='Normed events / 0.2',
+                           title=plt_name,
+                           stand_hist="mc hist")
+
+                # =================================================================================
+
+                plt_name = 'data vs MC q2 ADD'
+                hists = {"data hist": data_df['q2_ADD'], "mc hist": jpsi_df["q2_ADD"]}
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 10),
+                           save_file='q2_ADD',
+                           xlabel=r'$q^2 ADD, [GeV^2/c^4]$',
+                           ylabel='Normed events / 0.2',
+                           title=plt_name,
+                           stand_hist="data hist")
+
+                data_e_plus_nonzero_brem_E = data_df.query('e_plus_BREM_P > 0.')['e_plus_BREM_P']
+                MC_e_plus_nonzero_brem_E = jpsi_df.query('e_plus_BREM_P > 0.')['e_plus_BREM_P']
+
+                plt_name = 'data vs MC non-zero brem E log'
+                hists = {"data hist": data_e_plus_nonzero_brem_E / 1000., "mc hist": MC_e_plus_nonzero_brem_E / 1000.}
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0., 100.),
+                           save_file='nonzero_bremE',
+                           xlabel=r'$E_{\gamma}, GeV$',
+                           ylabel='Normed events / 2 GeV',
+                           title=plt_name,
+                           stand_hist="data hist",
+                           log=True)
+
+                plt_name = 'data vs MC 1-cosTheta lin'
+                hists = {"data hist": 1 - data_df['cosTheta'], "mc hist": 1 - jpsi_df['cosTheta']}
+                plot_hists(hists, tags=tags, nbins=30, bin_range=(0.0001, 0.1),
+                           save_file='1-cosTheta lin',
+                           xlabel=r'$1 - cos(\theta)$',
+                           ylabel='Normed events',
+                           title=plt_name,
+                           stand_hist=None,
+                           log=False,
+                           x_log=True)
+
+                # =================================================================================
+
+                plt_name = 'data vs smeared MC e_plus P'
+                hists = {"data hist": data_df['e_plus_P'] / 1000.,
+                         "smeared mc hist": jpsi_df["e_plus_P_smeared"] / 1000.}
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 300),
+                           save_file='e_plus_P linear',
+                           xlabel=r'$p_{e^+}, [GeV/c^2]$',
+                           ylabel='Normed events / 6',
+                           title=plt_name,
+                           stand_hist="data hist",
+                           log=False)
+
+                plt_name = 'data vs MC e_plus P'
+                hists = {"data hist": data_df['e_plus_P'] / 1000., "mc hist": jpsi_df['e_plus_P'] / 1000.}
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 300),
+                           save_file='e_plus_P linear',
+                           xlabel=r'$p_{e^+}, [GeV/c^2]$',
+                           ylabel='Normed events / 6',
+                           title=plt_name,
+                           stand_hist="data hist",
+                           log=False)
+
+                plt_name = 'MC vs smeared MC e_plus P'
+                hists = {"mc hist": jpsi_df['e_plus_P'] / 1000., "smeared mc hist": jpsi_df["e_plus_P_smeared"] / 1000.}
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 300),
+                           save_file='e_plus_P linear',
+                           xlabel=r'$p_{e^+}, [GeV/c^2]$',
+                           ylabel='Normed events / 6',
+                           title=plt_name,
+                           stand_hist="mc hist",
+                           log=False)
+
+                # =================================================================================
+
+                plt_name = 'data vs smeared MC e_plus TRACK_P'
+                hists = {"data hist": data_df['e_plus_TRACK_P'] / 1000.,
+                         "smeared mc hist": jpsi_df["e_plus_TRACK_P_smeared"] / 1000.}
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 300),
+                           save_file='e_plus_TRACK_P linear',
+                           xlabel=r'$p_{e^+}, [GeV/c^2]$',
+                           ylabel='Normed events / 6',
+                           title=plt_name,
+                           stand_hist="data hist",
+                           log=False)
+
+                plt_name = 'data vs MC e_plus TRACK_P'
+                hists = {"data hist": data_df['e_plus_TRACK_P'] / 1000., "mc hist": jpsi_df['e_plus_TRACK_P'] / 1000.}
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 300),
+                           save_file='e_plus_TRACK_P linear',
+                           xlabel=r'$p_{e^+}, [GeV/c^2]$',
+                           ylabel='Normed events / 6',
+                           title=plt_name,
+                           stand_hist="data hist",
+                           log=False)
+
+                plt_name = 'MC vs smeared MC e_plus TRACK_P'
+                hists = {"mc hist": jpsi_df['e_plus_TRACK_P'] / 1000.,
+                         "smeared mc hist": jpsi_df["e_plus_TRACK_P_smeared"] / 1000.}
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 300),
+                           save_file='e_plus_TRACK_P linear',
+                           xlabel=r'$p_{e^+}, [GeV/c^2]$',
+                           ylabel='Normed events / 6',
+                           title=plt_name,
+                           stand_hist="mc hist",
+                           log=False)
+
+                # =================================================================================
+
+                plt_name = 'data vs smeared MC e_minus P'
+                hists = {"data hist": data_df['e_minus_P'] / 1000.,
+                         "smeared mc hist": jpsi_df["e_minus_P_smeared"] / 1000.}
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 300),
+                           save_file='e_minus_P linear',
+                           xlabel=r'$p_{e^-}, [GeV/c^2]$',
+                           ylabel='Normed events / 6',
+                           title=plt_name,
+                           stand_hist="data hist",
+                           log=False)
+
+                plt_name = 'data vs MC e_minus P'
+                hists = {"data hist": data_df['e_minus_P'] / 1000., "mc hist": jpsi_df['e_minus_P'] / 1000.}
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 300),
+                           save_file='e_minus_P linear',
+                           xlabel=r'$p_{e^-}, [GeV/c^2]$',
+                           ylabel='Normed events / 6',
+                           title=plt_name,
+                           stand_hist="data hist",
+                           log=False)
+
+                plt_name = 'MC vs smeared MC e_minus P'
+                hists = {"mc hist": jpsi_df['e_minus_P'] / 1000.,
+                         "smeared mc hist": jpsi_df["e_minus_P_smeared"] / 1000.}
+                plot_hists(hists, tags=tags, nbins=50, bin_range=(0, 300),
+                           save_file='e_minus_P linear',
+                           xlabel=r'$p_{e^-}, [GeV/c^2]$',
+                           ylabel='Normed events / 6',
+                           title=plt_name,
+                           stand_hist="mc hist",
+                           log=False)
 
 
 def smear_TRACK_P(data):
     data['q2_nobrem_smeared'] = np.power(data['J_psi_1S_TRACK_M_smeared'], 2) / 10 ** 6
     data['smear_factor'] = np.sqrt(np.divide(data['q2_nobrem_smeared'], data['q2_nobrem']))
+    # data['smear_factor'] = np.ones_like(data['q2_nobrem_smeared'])
     data['e_plus_TRACK_P_smeared'] = np.multiply(data['e_plus_TRACK_P'], data['smear_factor'])
     data['e_minus_TRACK_P_smeared'] = np.multiply(data['e_minus_TRACK_P'], data['smear_factor'])
     return data
@@ -355,29 +547,7 @@ def calc_smeared_q2(data):
     data['e_minus_P_smeared'] = data['e_minus_TRACK_P_smeared'] + data['e_minus_BREM_P']
     data['q2_smeared'] = 2 * np.multiply(np.multiply(data['e_plus_P_smeared'], data['e_minus_P_smeared']),
                                          np.ones_like(data['cosTheta']) - data['cosTheta']) / 10 ** 6
-    print(data['q2_smeared'])
     return data
-
-
-def plot_hists(dict, plt_name, tags, plt_title):
-    r_tag = tags["run_num"]
-    b_tag = tags["brem_cat"]
-    t_tag = tags["trig_cat"]
-    plt.figure()
-    # h_num_bins = hist_dict[plt_name]["num_bins"]
-    # h_xmin = hist_dict[plt_name]["x_min"]
-    # h_xmax = hist_dict[plt_name]["x_max"]
-    # h_xlabel = hist_dict[plt_name]["x_label"]
-    # h_ylabel = hist_dict[plt_name]["y_label"]
-    for key, value in dict.items():
-        plt.hist(value, bins=100, alpha=0.5, density=True, label=key)
-
-    plt.legend(loc='upper left')
-    plt.title(plt_title)
-    if not os.path.exists(f'../Results/Hists/{plt_name}_{plt_title}/'):
-        os.makedirs(f'../Results/Hists/{plt_name}_{plt_title}/')
-    plt.savefig(f'../Results/Hists/{plt_name}_{plt_title}/{b_tag}_{t_tag}_{r_tag}_{plt_title}_hist.jpg')
-    plt.close()
 
 
 def save_gauss_params(params, naming, tags):
