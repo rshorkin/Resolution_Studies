@@ -20,10 +20,9 @@ from Hist_Settings import hist_dict, data_branches, mc_branches
 fraction = 1.
 
 samples = {"data": "B2Kee_",
-           "rare_MC": "B2Kee_",
-           "Jpsi_MC": "B2KJpsi_"}
+           "Jpsi_MC": "KJPsiee_"}
 
-samples_keys = ["data", "rare_MC", "Jpsi_MC"]
+samples_keys = ["data", "Jpsi_MC"]
 
 common_path = "/media/roman/Backup Plus/resolution_data/"  # !!! change this to your data directory path !!!
 
@@ -82,7 +81,7 @@ def read_file(path, sample, branches):
     df['q2_ADD'] = df['q2'] - df['q2_nobrem']
     df = df.query("q2 > 6.0 and q2 < 12.96")  # according to LHCb-ANA-2017-042, Section 5.4.1, table 3
     df = df.query("B_plus_DTFM_M > 5200 and B_plus_DTFM_M < 5680")  # same, Section 6.9 (stricter cut)
-    df = df.query("BDT_score_selection >= 0.8")  # 85% of signal
+    df = df.query("CombBDT >= 0.8")  # 85% of signal
 
     df.drop(['e_plus_PX', 'e_plus_PY', 'e_plus_PZ', 'e_minus_PX', 'e_minus_PY', 'e_minus_PZ'],
             axis=1,
@@ -155,61 +154,40 @@ def read_sample(sample, year):  # right now reads 1 sample from 2 ntuples (idk h
     frames = []
 
     if sample == "data":
-        prefix = "Data/data_"
-        strip = ""
-        truth = ""
+        prefix = "Data/"
+        presel = 'CommonPresel'
 
     else:
-        prefix = "MC/mc_"
-        strip = ""
-        truth = "truth_"
+        prefix = "MC/"
+        presel = 'JPsiPresel'
 
     # todo maybe put this into infofile?
-    fold = "folded_"
-    trig = "fullTrig_"
-    presel = "fullPresel_"
-    bdt = "bdt"
+    trig = "HltTOS"
+    bdt = "CombBDT"
 
-    mag_pols = ["MD_", "MU_"]
+    path = f'{common_path}{prefix}{samples[sample]}{year}_{presel}_{trig}_{bdt}.root'
 
-    for mag_pol in mag_pols:  # if MU and MD merged change path and delete for-loop, temp_df, frames, mag_pols and
-        # concat
+    if not os.path.exists(path):
+        print("Didn't find {0} file dated year {1}".format(sample, year))
+        return None
+    # print(path)
 
-        # using the following naming scheme:
-
-        path = common_path + prefix + samples[sample] + year + "_" + mag_pol + strip + fold \
-               + truth + trig + presel + bdt + ".root"
-
-        # example data file:
-        # Path/To/Ntuples/Data/data_B2Kee_2018_MU_Strip34_folded_fullTrig_fullPresel_bdt.root
-        # example MC file:
-        # Path/To/Ntuples/MC/mc_B2KJpsi_2016_MD_folded_truth_fullTrig_fullPresel_bdt.root
-
-        if not os.path.exists(path):
-            print("Didn't find {0} file dated year {1}".format(sample, year))
-            break
-
-        if sample == "data":
-            branches = data_branches
-        elif "MC" in sample:
-            branches = mc_branches
-
-        if 'rare' not in sample:
-            temp_df = read_file(path, sample, branches)
-        else:
-            temp_df = read_rare_MC(path, sample, branches)
-        temp_df = create_new_vars(temp_df, sample)
-        frames.append(temp_df)
+    if sample == "data":
+        branches = data_branches
+    elif "MC" in sample:
+        branches = mc_branches
 
     if os.path.exists(path):
+        if 'rare' not in sample:
+            print('HERE')
+            df_sample = read_file(path, sample, branches)
+        else:
+            df_sample = read_rare_MC(path, sample, branches)
+        df_sample = create_new_vars(df_sample, sample)
         print("###==========###")
         print("Finished processing {0} samples".format(sample))
         print("Time elapsed: {0} seconds".format(time.time() - start))
-        df_sample = pandas.concat(frames)
         return df_sample
-
-    else:
-        return None
 
 
 def get_data_given_year(year):
@@ -392,3 +370,43 @@ def plot_histogram(data, tags, plt_name):
     main_axes.set_xlabel(h_xlabel)
     # plt.show()
     plt.savefig("../Output/Hist_{0}_{1}_{2}_{3}.pdf".format(run_num, s, b, t))
+
+
+def reweight(data, MC):
+    data_df = data.sort_values(axis=0, by='cosTheta')
+    MC_df = MC.sort_values(axis=0, by='cosTheta')
+
+    data_w = None
+    MC_w = None
+    for i in range(int(math.ceil((len(MC_df.index) / 200)))):
+        if i == 0:
+            min_val = 0
+        else:
+            min_val = max_val
+
+        if (i + 1) * 200 <= len(MC_df.index):
+            max_val = MC_df.cosTheta.to_numpy()[(i + 1) * 200]
+        else:
+            max_val = 1.
+
+        data_temp_weights = np.full(len(data_df.query(f'{min_val} < cosTheta and cosTheta <= {max_val}').index),
+                                    np.divide(len(MC_df.query(f'{min_val} < cosTheta and cosTheta < {max_val}').index) *
+                                              (len(data_df.index) / len(MC_df.index)),
+                                    len(data_df.query(f'{min_val} < cosTheta and cosTheta < {max_val}').index)))
+
+        MC_temp_weights = np.full(len(MC_df.query(f'{min_val} < cosTheta and cosTheta <= {max_val}').index),
+                                  np.divide(len(MC_df.index), len(data_df.index)))
+        if data_w is None:
+            data_w = data_temp_weights
+            MC_w = MC_temp_weights
+        else:
+            data_w = np.concatenate([data_w, data_temp_weights])
+            MC_w = np.concatenate([MC_w, MC_temp_weights])
+
+    data_df['Weights'] = data_w
+    MC_df['Weights'] = MC_w
+
+    return data_df, MC_df
+
+
+

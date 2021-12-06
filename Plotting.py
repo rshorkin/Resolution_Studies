@@ -1,3 +1,4 @@
+import scipy.stats
 import zfit
 import matplotlib.pyplot as plt
 import numpy as np
@@ -157,7 +158,7 @@ def plot_fit_result(models, data, obs, tags, plt_name, pulls_switch=False):
 
 
 def plot_hists(hists: dict, tags, bin_range, nbins=100, save_file='', xlabel='', ylabel='', title='', stand_hist=None,
-               log=False, x_log=False):
+               log=False, x_log=False, loc='right', weights=None):
     r_tag = tags["run_num"]
     b_tag = tags["brem_cat"]
     t_tag = tags["trig_cat"]
@@ -193,9 +194,15 @@ def plot_hists(hists: dict, tags, bin_range, nbins=100, save_file='', xlabel='',
 
     for key, value in hists.items():
         if not x_log:
-            data_x, _ = np.histogram(value, bins=h_num_bins, range=bin_range)
+            if weights:
+                data_x, _ = np.histogram(value, bins=h_num_bins, range=bin_range, weights=weights[key])
+            else:
+                data_x, _ = np.histogram(value, bins=h_num_bins, range=bin_range)
         else:
-            data_x, _ = np.histogram(value, bins=logbins)
+            if weights:
+                data_x, _ = np.histogram(value, bins=logbins, weights=weights[key])
+            else:
+                data_x, _ = np.histogram(value, bins=logbins)
         data_errors = np.sqrt(data_x)
         data_sum = data_x.sum()
 
@@ -238,7 +245,7 @@ def plot_hists(hists: dict, tags, bin_range, nbins=100, save_file='', xlabel='',
     main_axes.xaxis.set_minor_locator(AutoMinorLocator())
     main_axes.set_ylabel(h_ylabel)
 
-    main_axes.legend(title=plot_label, loc="upper right")
+    main_axes.legend(title=plot_label, loc=f"upper {loc}")
     main_axes.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
 
     if log:
@@ -334,3 +341,31 @@ def plot_hists(hists: dict, tags, bin_range, nbins=100, save_file='', xlabel='',
     print('saved ' + f'../Results/Hists/{save_file}/{title}_hist_{b_tag}_{t_tag}_{r_tag}.jpg')
     # plt.show()
     plt.close()
+
+
+def plot_2dhist(data_x, data_y, weights=None, bins=None, range=None,
+                title='', xlabel='', yalbel='', clabel='', filename='', path='../Results/Hists2d/General'):
+    plt.clf()
+    fig, ax = plt.subplots()
+    h, xedges, yedges, image = ax.hist2d(data_x, data_y, weights=weights, bins=bins, range=range, cmin=1)
+    # hxy, _, _ = np.histogram2d(sig_cut_df.xmean, sig_cut_df.ymean, bins=300, range=[[-75., 75.], [-75., 75]])
+    # hxy_pmt0 = np.divide(hxy_pmt0, hxy)
+    # hxy = np.transpose(hxy)
+    pearson_r = scipy.stats.pearsonr(data_x, data_y)[0]
+    spearman_r = scipy.stats.spearmanr(data_x, data_y)[0]
+    kendall_t = scipy.stats.kendalltau(data_x, data_y)[0]
+
+    plt.text(0.77, 0.99, f"Entries: {len(data_x.index)}\nPearson's r: {pearson_r:.2f}\nSpearman's rho: {spearman_r:.2f}"
+                         f"\nKendall's tau: {kendall_t:.2f}",
+             ha="left", va="top", family='sans-serif',
+             fontsize=10, transform=ax.transAxes, bbox=dict(boxstyle='round', facecolor='white', alpha=0.85))
+    # h = ax.pcolor(ys, xs, hxy, vmin=1.)
+
+    fig.colorbar(image, ax=ax, label=clabel)
+    ax.set_title(title, fontsize=16)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(yalbel)
+    if not os.path.exists(f'{path}'):
+        os.makedirs(f'{path}')
+    plt.savefig(f'{path}/{filename}.jpg')
+    plt.clf()

@@ -16,27 +16,32 @@ initial_params_dict = {
                      'RCB_alpha': 7., 'RCB_n': 10., 'RCB_mu': 1500.0, 'RCB_sigma': 320.},
         "brem_two": {'logn_mu': 6.8, 'logn_sigma': 0.42, 'logn_theta': -3200.,
                      'LCB_alpha': 0.54, 'LCB_n': 6., 'LCB_mu': 2100., 'LCB_sigma': 300.,
-                     'RCB_alpha': 1., 'RCB_n': 10., 'RCB_mu': 1400.0, 'RCB_sigma': 300.}
+                     'RCB_alpha': 1., 'RCB_n': 10., 'RCB_mu': 1400.0, 'RCB_sigma': 300.},
+        "all_brem": {'logn_mu': 6.2, 'logn_sigma': 0.57, 'logn_theta': -3180.,
+                     'LCB_alpha': 2.14, 'LCB_n': 20., 'LCB_mu': 2200., 'LCB_sigma': 300.,
+                     'RCB_alpha': 7., 'RCB_n': 10., 'RCB_mu': 1500.0, 'RCB_sigma': 320.}
     }
 }
 
-data_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection", "e_plus_BremMultiplicity",
+data_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "CombBDT", "e_plus_BremMultiplicity",
                  "e_minus_BremMultiplicity", "L0TISOnly_d", "L0ETOSOnly_d", "J_psi_1S_TRACK_M",
                  'e_plus_L0Calo_ECAL_realET', 'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_minus_L0ElectronDecision_TOS',
                  'B_plus_L0Global_TIS', 'e_plus_L0ElectronDecision_TOS', 'e_plus_L0Calo_ECAL_realET',
                  'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_plus_L0ElectronDecision_TOS', 'B_plus_L0Global_TIS',
                  'e_minus_L0ElectronDecision_TOS', 'J_psi_1S_ETA',
                  'e_plus_TRACK_P', 'e_plus_P', 'e_minus_TRACK_P', 'e_minus_P',
-                 'e_plus_PX', 'e_plus_PY', 'e_plus_PZ', 'e_minus_PX', 'e_minus_PY', 'e_minus_PZ']
+                 'e_plus_PX', 'e_plus_PY', 'e_plus_PZ', 'e_minus_PX', 'e_minus_PY', 'e_minus_PZ',
+                 'e_plus_L0Calo_ECAL_region']
 
-mc_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "BDT_score_selection", "J_psi_1S_M_TRUE",
+mc_branches = ["J_psi_1S_M", "B_plus_M", "B_plus_DTFM_M", "CombBDT", "J_psi_1S_M_TRUE",
                "e_plus_BremMultiplicity", "e_minus_BremMultiplicity", "L0TISOnly_d", "L0ETOSOnly_d",
                'e_plus_L0Calo_ECAL_realET', 'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_minus_L0ElectronDecision_TOS',
                'B_plus_L0Global_TIS', 'e_plus_L0ElectronDecision_TOS', 'e_plus_L0Calo_ECAL_realET',
                'e_minus_L0Calo_ECAL_realET', 'TCKCat', 'e_plus_L0ElectronDecision_TOS', 'B_plus_L0Global_TIS',
                'e_minus_L0ElectronDecision_TOS', "J_psi_1S_TRACK_M", "B_plus_M_TRUE", 'J_psi_1S_ETA',
                'e_plus_TRACK_P', 'e_plus_P', 'e_minus_TRACK_P', 'e_minus_P',
-               'e_plus_PX', 'e_plus_PY', 'e_plus_PZ', 'e_minus_PX', 'e_minus_PY', 'e_minus_PZ']
+               'e_plus_PX', 'e_plus_PY', 'e_plus_PZ', 'e_minus_PX', 'e_minus_PY', 'e_minus_PZ',
+               'e_plus_L0Calo_ECAL_region']
 
 hist_dict = {"Jpsi_MC_mee": {"plot_label": "$B \\rightarrow KJ/\\psi$",
                              "bin_width": 30,

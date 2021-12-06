@@ -110,21 +110,23 @@ def create_initial_model(initial_parameters, obs, tags, switch="brem", params=No
 
         model = zfit.pdf.SumPDF([Log_n, Left_CB, Right_CB], fracs=[frac1, frac2])
 
-    elif switch == "smearedMC":
-        mu = zfit.Parameter("mu" + name_tags(tags), initial_parameters['mu'],
-                            initial_parameters['mu'] - 200., initial_parameters['mu'] + 200.)
-        sigma = zfit.Parameter('sigma' + name_tags(tags), initial_parameters['sigma'], 1., 100.)
-        alphal = zfit.Parameter('alphal' + name_tags(tags), initial_parameters['alphal'], 0.01, 5.)
-        nl = zfit.Parameter('nl' + name_tags(tags), initial_parameters['nl'], 0.1, 400.)
+    elif switch == "nb_all":
+        mu_r = zfit.Parameter("r_mu_CB" + name_tags(tags), initial_parameters['LCB_mu'], 500., 3200.)
+        sigma_r = zfit.Parameter('r_sigma_CB' + name_tags(tags), initial_parameters['LCB_sigma'], 2., 700.)
+        alpha_r = zfit.Parameter('r_alpha_CB' + name_tags(tags), -5., -10., -0.01, )
+        n_r = zfit.Parameter('r_n_CB' + name_tags(tags), initial_parameters['LCB_n'], 0.0001, 50.)
 
-        alphar = zfit.Parameter('alphar' + name_tags(tags),
-                                params['alphar']['value'],
-                                floating=False)
-        nr = zfit.Parameter('nr' + name_tags(tags),
-                            params['nr']['value'],
-                            floating=False)
+        Right_CB = zfit.pdf.CrystalBall(obs=obs, mu=mu_r, sigma=sigma_r, alpha=alpha_r, n=n_r)
 
-        model = zfit.pdf.DoubleCB(obs=obs, mu=mu, sigma=sigma, alphal=alphal, nl=nl, alphar=alphar, nr=nr)
+        mu = zfit.Parameter('logn_mu' + name_tags(tags), initial_parameters['logn_mu'])
+        theta = zfit.Parameter('logn_theta' + name_tags(tags), initial_parameters['logn_theta'])
+        sigma = zfit.Parameter('logn_sigma' + name_tags(tags), initial_parameters['logn_sigma'])
+
+        Log_n = LogNormal(obs=obs, mu=mu, sigma=sigma, theta=theta)
+
+        frac1 = zfit.Parameter('frac1' + name_tags(tags), 0.6, 0.01, .99)
+
+        model = zfit.pdf.SumPDF([Log_n, Right_CB ], fracs=[frac1])
 
     return model
 
